@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Airplanes - HDBC Paper Products</title>
+
+  <!-- Same design file as the homepage, so all pages match -->
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- TOP BAR (same as the homepage) -->
+  <header>
+    <div class="logo">HDBC</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- PAPER AIRPLANES -->
+  <section>
+    <a class="back" href="index.html">&larr; Back to all products</a>
+
+    <h2>Our Paper Airplanes</h2>
+    <!-- "three" makes the cards a bit narrower so all 3 fit in one row -->
+    <div class="products three">
+
+      <!-- Plane 1: The Original -->
+      <div class="card">
+        <!-- A drawing of a classic dart plane -->
+        <svg viewBox="0 0 100 100">
+          <polygon points="10,50 90,20 55,85" fill="#1d4e89"/>
+          <polygon points="90,20 45,60 55,85" fill="#6b7280"/>
+        </svg>
+        <h3>The Original</h3>
+        <p>The classic paper airplane. Simple, fast, and flies straight.</p>
+        <span class="price">$2</span>
+      </div>
+
+      <!-- Plane 2: Looper -->
+      <div class="card">
+        <!-- A drawing of a plane flying in a loop -->
+        <svg viewBox="0 0 100 100">
+          <circle cx="50" cy="45" r="30" fill="none" stroke="#6b7280" stroke-width="3" stroke-dasharray="6 5"/>
+          <polygon points="30,85 70,70 52,95" fill="#1d4e89"/>
+          <polygon points="70,70 46,84 52,95" fill="#6b7280"/>
+        </svg>
+        <h3>Looper</h3>
+        <p>Built to do loop-the-loops in the air.</p>
+        <span class="price">$4</span>
+      </div>
+
+      <!-- Plane 3: Sky Archer -->
+      <div class="card">
+        <!-- A drawing of a long, pointy plane shooting upward -->
+        <svg viewBox="0 0 100 100">
+          <polygon points="92,8 20,62 48,58" fill="#1d4e89"/>
+          <polygon points="92,8 48,58 42,82" fill="#6b7280"/>
+          <line x1="8" y1="92" x2="24" y2="78" stroke="#6b7280" stroke-width="3"/>
+          <line x1="16" y1="96" x2="30" y2="84" stroke="#6b7280" stroke-width="3"/>
+        </svg>
+        <h3>Sky Archer</h3>
+        <p>Long and pointy, made to shoot high and far like an arrow.</p>
+        <span class="price">$4</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    &copy; 2026 HDBC Paper Products
+  </footer>
+
+</body>
+</html>
