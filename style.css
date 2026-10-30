@@ -215,3 +215,9 @@ a.card:hover {
 .products.three .card {
   width: 200px;
 }
+
+/* ===== LOGO PICTURE ===== */
+.logo img {
+  display: block;
+  height: 72px;
+}
