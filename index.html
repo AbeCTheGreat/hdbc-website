@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- The title shows up on the browser tab -->
   <title>HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
 
   <!-- This loads the colors and design from style.css -->
   <link rel="stylesheet" href="style.css">
@@ -38,13 +41,11 @@
       <!-- Product 1: Comic Books
            This card is a link (<a>) so clicking it opens comics.html -->
       <a class="card" href="comics.html">
-        <!-- A simple drawing of a comic book -->
-        <svg viewBox="0 0 100 100">
-          <rect x="20" y="10" width="60" height="80" rx="4" fill="#1d4e89"/>
-          <rect x="28" y="20" width="44" height="28" fill="#e5e7eb"/>
-          <rect x="28" y="54" width="20" height="26" fill="#e5e7eb"/>
-          <rect x="52" y="54" width="20" height="26" fill="#e5e7eb"/>
-        </svg>
+        <!-- Mini versions of our two real comic covers, side by side -->
+        <div class="mini-covers">
+          <img class="cover" src="not-smart-cops.png" alt="Cover of Not Smart Cops">
+          <img class="cover" src="praying-antis.png" alt="Cover of PrayingAntis">
+        </div>
         <h3>Comic Books</h3>
         <p>Original comics, written and drawn by hand.</p>
         <span class="price">$7</span>

@@ -221,3 +221,13 @@ a.card:hover {
   display: block;
   height: 72px;
 }
+
+/* Two small covers side by side on the homepage card */
+.mini-covers {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.mini-covers .cover {
+  width: 47%;
+}
