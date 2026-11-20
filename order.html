@@ -34,14 +34,10 @@
       <p><strong>How ordering works:</strong></p>
       <ol class="steps">
         <li>Type how many of each thing you want. Your total adds up by itself.</li>
-        <li>Pick the day you want to get your order.</li>
-        <li>Click <strong>Order these</strong>. Our order form opens with your items and day already filled in.</li>
+        <li>Pick the date you want to get your order (school days only).</li>
+        <li>Click <strong>Order these</strong>. Our order form opens with your items and date already filled in.</li>
         <li>Add your name, classroom, and age, then click Submit.</li>
       </ol>
-
-      <!-- WHERE TO GET YOUR ORDER -->
-      <p class="pickup"><strong>Where to get your order:</strong> After school at the playground, by the spider web.<br>
-        <strong>Pay when you get your order.</strong></p>
 
       <!-- ORDER CALCULATOR
            Each box has data-price (the cost) and data-option (the exact
@@ -70,18 +66,13 @@
         <tr class="total-row"><td colspan="2">Total</td><td id="total">$0.00</td></tr>
       </table>
 
-      <!-- PICKUP DAY: weekdays only -->
+      <!-- PICKUP DATE: a calendar. The script below blocks weekends and past days. -->
       <p class="day-picker">
         <label for="pickup-day"><strong>Pickup day (after school, by the spider web):</strong></label>
-        <select id="pickup-day">
-          <option value="">Choose a day</option>
-          <option>Monday</option>
-          <option>Tuesday</option>
-          <option>Wednesday</option>
-          <option>Thursday</option>
-          <option>Friday</option>
-        </select>
+        <input type="date" id="pickup-day">
       </p>
+      <p class="hint" id="day-hint" hidden>Pickups are only on school days (Monday to Friday). Please pick a different date.</p>
+      <p class="hint"><strong>Pay when you get your order.</strong></p>
 
       <!-- ORDER BUTTON: the script below fills in its link -->
       <a class="button disabled" id="order-button" href="#" target="_blank">Order these</a>
@@ -105,6 +96,31 @@
 
     const boxes = document.querySelectorAll(".qty");
     const daySelect = document.getElementById("pickup-day");
+    const dayHint = document.getElementById("day-hint");
+
+    // The calendar starts tomorrow (so there's time to make the order)
+    // and goes up to 2 months ahead.
+    function toDateText(d) {
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const later = new Date();
+    later.setDate(later.getDate() + 60);
+    daySelect.min = toDateText(tomorrow);
+    daySelect.max = toDateText(later);
+
+    // Gives back the date they picked, or "" if it's empty, a weekend, or out of range
+    function pickedSchoolDay() {
+      const value = daySelect.value;   // looks like "2026-11-25"
+      if (value === "") { dayHint.hidden = true; return ""; }
+      const parts = value.split("-");
+      const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const weekday = date.getDay();   // 0 = Sunday, 6 = Saturday
+      const ok = weekday !== 0 && weekday !== 6 && value >= daySelect.min && value <= daySelect.max;
+      dayHint.hidden = ok;
+      return ok ? value : "";
+    }
     const totalText = document.getElementById("total");
     const button = document.getElementById("order-button");
     const hint = document.getElementById("order-hint");
@@ -126,7 +142,7 @@
       // toFixed(2) shows money with 2 digits after the dot, like $3.50
       totalText.textContent = "$" + total.toFixed(2);
 
-      const day = daySelect.value;
+      const day = pickedSchoolDay();
 
       // The button only works once they've picked something AND a day
       if (lines.length === 0 || day === "") {
@@ -144,6 +160,7 @@
 
     boxes.forEach(function (box) { box.addEventListener("input", update); });
     daySelect.addEventListener("change", update);
+    daySelect.addEventListener("input", update);
     update();
   </script>
 

@@ -272,13 +272,15 @@ a.card:hover {
   align-items: center;
   flex-wrap: wrap;
 }
-.day-picker select {
+.day-picker select,
+.day-picker input {
   font-size: 16px;
   padding: 6px 10px;
   border: 2px solid var(--gray);
   border-radius: 6px;
 }
-.day-picker select:focus {
+.day-picker select:focus,
+.day-picker input:focus {
   outline: 3px solid var(--blue);
   border-color: var(--blue);
 }
