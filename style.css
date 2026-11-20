@@ -231,3 +231,35 @@ a.card:hover {
 .mini-covers .cover {
   width: 47%;
 }
+
+/* ===== ORDER CALCULATOR ===== */
+.price-list th {
+  padding: 10px 20px;
+  border-bottom: 2px solid var(--dark-blue);
+  text-align: left;
+}
+.qty {
+  width: 64px;
+  padding: 6px 8px;
+  font-size: 16px;
+  border: 2px solid var(--gray);
+  border-radius: 6px;
+}
+.qty:focus {
+  outline: 3px solid var(--blue);
+  border-color: var(--blue);
+}
+.total-row td {
+  font-size: 20px;
+  font-weight: bold;
+  border-bottom: none;
+}
+.pickup {
+  background: var(--light-gray);
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: var(--dark-blue);
+}
+.hint {
+  margin-top: 0;
+}
