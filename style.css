@@ -225,11 +225,11 @@ a.card:hover {
 /* Two small covers side by side on the homepage card */
 .mini-covers {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   justify-content: center;
 }
 .mini-covers .cover {
-  width: 47%;
+  width: 31%;
 }
 
 /* ===== ORDER CALCULATOR ===== */
