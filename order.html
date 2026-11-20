@@ -34,7 +34,7 @@
       <p><strong>How ordering works:</strong></p>
       <ol class="steps">
         <li>Type how many of each thing you want. Your total adds up by itself.</li>
-        <li>Pick the date you want to get your order (school days only).</li>
+        <li>Pick the date you want to get your order (Mondays, Wednesdays, or Fridays).</li>
         <li>Click <strong>Order these</strong>. Our order form opens with your items and date already filled in.</li>
         <li>Add your name, classroom, and age, then click Submit.</li>
       </ol>
@@ -68,10 +68,10 @@
 
       <!-- PICKUP DATE: a calendar. The script below blocks weekends and past days. -->
       <p class="day-picker">
-        <label for="pickup-day"><strong>Pickup day (after school, by the spider web):</strong></label>
+        <label for="pickup-day"><strong>Pickup day: Mon, Wed, or Fri (after school, by the spider web):</strong></label>
         <input type="date" id="pickup-day">
       </p>
-      <p class="hint" id="day-hint" hidden>Pickups are only on school days (Monday to Friday). Please pick a different date.</p>
+      <p class="hint" id="day-hint" hidden>Pickups are only on Mondays, Wednesdays, and Fridays. Please pick a different date.</p>
       <p class="hint"><strong>Pay when you get your order.</strong></p>
 
       <!-- ORDER BUTTON: the script below fills in its link -->
@@ -116,8 +116,8 @@
       if (value === "") { dayHint.hidden = true; return ""; }
       const parts = value.split("-");
       const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-      const weekday = date.getDay();   // 0 = Sunday, 6 = Saturday
-      const ok = weekday !== 0 && weekday !== 6 && value >= daySelect.min && value <= daySelect.max;
+      const weekday = date.getDay();   // 0 = Sunday, 1 = Monday, 3 = Wednesday, 5 = Friday
+      const ok = (weekday === 1 || weekday === 3 || weekday === 5) && value >= daySelect.min && value <= daySelect.max;
       dayHint.hidden = ok;
       return ok ? value : "";
     }
