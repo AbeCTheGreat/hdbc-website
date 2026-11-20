@@ -296,3 +296,44 @@ a.card:hover {
   background: var(--gray);
   font-size: 18px;
 }
+
+/* ===== COMBO DEAL ===== */
+.combo-row td {
+  background: #fff6d6;
+}
+.save {
+  display: inline-block;
+  background: #d33a2c;
+  color: var(--white);
+  font-size: 13px;
+  font-weight: bold;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.combo-hint {
+  background: #fff6d6;
+  border: 2px solid #f2c230;
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--dark-blue);
+}
+.combo-banner {
+  max-width: 600px;
+  margin: 0 auto 28px;
+  background: #fff6d6;
+  border: 3px solid #f2c230;
+  border-radius: 12px;
+  padding: 16px 20px;
+  text-align: center;
+  color: var(--dark-blue);
+}
+.combo-banner h3 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+.combo-banner p {
+  margin: 0 0 12px;
+}
+.combo-banner .button {
+  margin: 0;
+}
