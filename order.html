@@ -34,12 +34,13 @@
       <p><strong>How ordering works:</strong></p>
       <ol class="steps">
         <li>Type how many of each thing you want. Your total adds up by itself.</li>
-        <li>Click <strong>Order these</strong>. Our order form opens with your items already filled in.</li>
+        <li>Pick the day you want to get your order.</li>
+        <li>Click <strong>Order these</strong>. Our order form opens with your items and day already filled in.</li>
         <li>Add your name, classroom, and age, then click Submit.</li>
       </ol>
 
       <!-- WHERE TO GET YOUR ORDER -->
-      <p class="pickup"><strong>Where to get your order:</strong> We deliver it to your classroom every Friday.<br>
+      <p class="pickup"><strong>Where to get your order:</strong> After school at the playground, by the spider web.<br>
         <strong>Pay when you get your order.</strong></p>
 
       <!-- ORDER CALCULATOR
@@ -69,9 +70,22 @@
         <tr class="total-row"><td colspan="2">Total</td><td id="total">$0.00</td></tr>
       </table>
 
+      <!-- PICKUP DAY: weekdays only -->
+      <p class="day-picker">
+        <label for="pickup-day"><strong>Pickup day (after school, by the spider web):</strong></label>
+        <select id="pickup-day">
+          <option value="">Choose a day</option>
+          <option>Monday</option>
+          <option>Tuesday</option>
+          <option>Wednesday</option>
+          <option>Thursday</option>
+          <option>Friday</option>
+        </select>
+      </p>
+
       <!-- ORDER BUTTON: the script below fills in its link -->
       <a class="button disabled" id="order-button" href="#" target="_blank">Order these</a>
-      <p class="hint" id="order-hint">Pick at least one thing to order.</p>
+      <p class="hint" id="order-hint">Pick at least one thing and a pickup day.</p>
     </div>
   </section>
 
@@ -87,8 +101,10 @@
     const FORM = "https://docs.google.com/forms/d/e/1FAIpQLSfphUP1_kagcaw74-GDL32BuYKAYDaqM-GyijyhpZcXCaj6sQ/viewform";
     const WHAT_TO_BUY = "entry.104978683";   // "What do you want to buy?"
     const HOW_MANY = "entry.680985229";      // "How many of each?"
+    const PICKUP_DAY = "entry.1315964429";   // "What day for pickup"
 
     const boxes = document.querySelectorAll(".qty");
+    const daySelect = document.getElementById("pickup-day");
     const totalText = document.getElementById("total");
     const button = document.getElementById("order-button");
     const hint = document.getElementById("order-hint");
@@ -110,12 +126,16 @@
       // toFixed(2) shows money with 2 digits after the dot, like $3.50
       totalText.textContent = "$" + total.toFixed(2);
 
-      if (lines.length === 0) {
+      const day = daySelect.value;
+
+      // The button only works once they've picked something AND a day
+      if (lines.length === 0 || day === "") {
         button.classList.add("disabled");
         button.removeAttribute("href");
         hint.hidden = false;
       } else {
         params.append(HOW_MANY, lines.join(", ") + " (Total: $" + total.toFixed(2) + ")");
+        params.append(PICKUP_DAY, day);
         button.classList.remove("disabled");
         button.href = FORM + "?" + params.toString();
         hint.hidden = true;
@@ -123,6 +143,7 @@
     }
 
     boxes.forEach(function (box) { box.addEventListener("input", update); });
+    daySelect.addEventListener("change", update);
     update();
   </script>
 

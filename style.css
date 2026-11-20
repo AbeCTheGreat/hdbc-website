@@ -263,3 +263,22 @@ a.card:hover {
 .hint {
   margin-top: 0;
 }
+
+/* Pickup day dropdown */
+.day-picker {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.day-picker select {
+  font-size: 16px;
+  padding: 6px 10px;
+  border: 2px solid var(--gray);
+  border-radius: 6px;
+}
+.day-picker select:focus {
+  outline: 3px solid var(--blue);
+  border-color: var(--blue);
+}
