@@ -361,3 +361,23 @@ a.card:hover {
   outline: 3px solid var(--blue);
   border-color: var(--blue);
 }
+
+/* ===== DEALS ON THE HOMEPAGE ===== */
+.deal-card {
+  position: relative;
+  background: #fff6d6;
+  border: 3px solid #f2c230;
+}
+.deal-card .save {
+  position: absolute;
+  top: -12px;
+  right: -10px;
+  transform: rotate(6deg);
+  font-size: 15px;
+  padding: 4px 10px;
+}
+.card .mini-plane {
+  width: 31%;
+  height: auto;
+  align-self: center;
+}
