@@ -337,3 +337,27 @@ a.card:hover {
 .combo-banner .button {
   margin: 0;
 }
+
+/* Plane Combo: pick your comic and 2 planes */
+.combo-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  justify-content: center;
+}
+.combo-picks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+}
+.combo-picks select {
+  font-size: 15px;
+  padding: 4px 8px;
+  border: 2px solid var(--gray);
+  border-radius: 6px;
+}
+.combo-picks select:focus {
+  outline: 3px solid var(--blue);
+  border-color: var(--blue);
+}

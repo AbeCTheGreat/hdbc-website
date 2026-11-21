@@ -49,6 +49,32 @@
         <tr class="combo-row"><td><strong>Comic Combo: all 3 comics</strong> <span class="save">Save $2!</span></td><td>$12</td>
             <td><input class="qty" id="qty-combo" type="number" min="0" max="20" value="0" aria-label="How many Comic Combos"
                  data-price="12" data-option="Comic Combo: all 3 comics - $12" data-name="Comic Combo"></td></tr>
+        <!-- COMBO DEAL: any comic + any 2 paper airplanes for $5 -->
+        <tr class="combo-row"><td><strong>Plane Combo: 1 comic + 2 paper airplanes</strong> <span class="save">Combo deal!</span></td><td>$5</td>
+            <td><input class="qty" id="qty-planecombo" type="number" min="0" max="20" value="0" aria-label="How many Plane Combos"
+                 data-price="5" data-option="Plane Combo: 1 comic + 2 paper airplanes - $5" data-name="Plane Combo"></td></tr>
+        <!-- Only shows up once someone wants a Plane Combo -->
+        <tr class="combo-row" id="plane-combo-picks" hidden><td colspan="3">
+          <div class="combo-picks">
+            <label for="pc-comic">Comic:
+              <select id="pc-comic">
+                <option value="">Choose</option>
+                <option>Not Smart Cops</option>
+                <option>Praying Antis</option>
+                <option>Not Smart Sports</option>
+              </select></label>
+            <label for="pc-plane1">Plane 1:
+              <select id="pc-plane1" class="pc-plane">
+                <option value="">Choose</option>
+                <option>Original</option><option>Looper</option><option>Sky Fin</option><option>Sky Fin+</option>
+              </select></label>
+            <label for="pc-plane2">Plane 2:
+              <select id="pc-plane2" class="pc-plane">
+                <option value="">Choose</option>
+                <option>Original</option><option>Looper</option><option>Sky Fin</option><option>Sky Fin+</option>
+              </select></label>
+          </div>
+        </td></tr>
         <tr><td>Not Smart Cops (comic)</td><td>$5</td>
             <td><input class="qty" id="qty-cops" type="number" min="0" max="20" value="0" aria-label="How many Not Smart Cops"
                  data-price="5" data-option="Not Smart Cops (comic) - $5" data-name="Not Smart Cops"></td></tr>
@@ -86,6 +112,7 @@
       <!-- ORDER BUTTON: the script below fills in its link -->
       <a class="button disabled" id="order-button" href="#" target="_blank">Order these</a>
       <p class="hint" id="order-hint">Pick at least one thing and a pickup day.</p>
+      <p class="hint" id="combo-picks-hint" hidden>Choose the comic and both planes for your Plane Combo.</p>
     </div>
   </section>
 
@@ -139,11 +166,24 @@
       const lines = [];
       const params = new URLSearchParams({ usp: "pp_url" });
 
+      // The Plane Combo needs its comic and 2 planes picked
+      const planeComboCount = Number(document.getElementById("qty-planecombo").value) || 0;
+      const picks = ["pc-comic", "pc-plane1", "pc-plane2"].map(function (id) {
+        return document.getElementById(id).value;
+      });
+      const picksDone = picks.every(function (p) { return p !== ""; });
+      document.getElementById("plane-combo-picks").hidden = planeComboCount <= 0;
+      document.getElementById("combo-picks-hint").hidden = planeComboCount <= 0 || picksDone;
+
       boxes.forEach(function (box) {
         const count = Math.max(0, Math.floor(Number(box.value) || 0));
         if (count > 0) {
           total += count * Number(box.dataset.price);
-          lines.push(count + " " + box.dataset.name);
+          let name = box.dataset.name;
+          if (box.id === "qty-planecombo") {
+            name += " (" + picks.join(" + ") + ")";   // like "Plane Combo (Praying Antis + Looper + Sky Fin)"
+          }
+          lines.push(count + " " + name);
           params.append(WHAT_TO_BUY, box.dataset.option);
         }
       });
@@ -160,7 +200,8 @@
       const day = pickedSchoolDay();
 
       // The button only works once they've picked something AND a day
-      if (lines.length === 0 || day === "") {
+      // (and, for a Plane Combo, its comic and planes)
+      if (lines.length === 0 || day === "" || (planeComboCount > 0 && !picksDone)) {
         button.classList.add("disabled");
         button.removeAttribute("href");
         hint.hidden = false;
@@ -176,6 +217,9 @@
     boxes.forEach(function (box) { box.addEventListener("input", update); });
     daySelect.addEventListener("change", update);
     daySelect.addEventListener("input", update);
+    ["pc-comic", "pc-plane1", "pc-plane2"].forEach(function (id) {
+      document.getElementById(id).addEventListener("change", update);
+    });
     update();
   </script>
 
