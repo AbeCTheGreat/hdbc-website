@@ -29,9 +29,31 @@
 
   <!-- BIG WELCOME AREA -->
   <div class="hero">
-    <h1>HDBOC Paper Products</h1>
-    <p>You fly on a paper airplane to a comic book and read.</p>
-    <a class="button" href="order.html">Order Now</a>
+
+    <!-- A paper airplane that flies across the top (the animation is in style.css) -->
+    <svg class="flying-plane" viewBox="0 0 100 100" aria-hidden="true">
+      <polygon points="10,50 90,20 55,85" fill="#ffffff"/>
+      <polygon points="90,20 45,60 55,85" fill="#c9d6e8"/>
+    </svg>
+
+    <div class="hero-inner">
+      <!-- Left side: the words -->
+      <div class="hero-text">
+        <h1>HDBOC Paper Products</h1>
+        <p>You fly on a paper airplane to a comic book and read.</p>
+        <div class="hero-buttons">
+          <a class="button" href="order.html">Order Now</a>
+          <a class="button button-outline" href="#deals">See Deals</a>
+        </div>
+      </div>
+
+      <!-- Right side: our 3 comic covers, fanned out like cards -->
+      <a class="hero-covers" href="comics.html" aria-label="See our comics">
+        <img class="fan fan-1" src="not-smart-cops.png" alt="">
+        <img class="fan fan-2" src="praying-antis.png" alt="">
+        <img class="fan fan-3" src="not-smart-sports.png" alt="">
+      </a>
+    </div>
   </div>
 
   <!-- PRODUCTS -->

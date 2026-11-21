@@ -455,3 +455,109 @@ a.card:hover {
 .peek-link:hover {
   text-decoration: underline;
 }
+
+/* ===== COOLER HOMEPAGE TOP ===== */
+.hero {
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+  padding: 56px 24px;
+  /* comic-book dots on top of the blue */
+  background:
+    radial-gradient(rgba(255, 255, 255, 0.09) 1.5px, transparent 2px) 0 0 / 14px 14px,
+    linear-gradient(135deg, var(--dark-blue), var(--blue));
+}
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 40px;
+}
+.hero-text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+.hero-text p {
+  margin: 0;
+}
+.hero-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+.hero .hero-buttons .button {
+  margin: 0;
+}
+.hero .button-outline {
+  background: transparent;
+  color: var(--white);
+  border: 3px solid var(--white);
+  padding: 11px 29px;
+}
+.hero .button-outline:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* The 3 covers, fanned out */
+.hero-covers {
+  position: relative;
+  flex: 0 0 300px;
+  width: 300px;
+  max-width: 100%;
+  height: 250px;
+  display: block;
+}
+.fan {
+  position: absolute;
+  top: 20px;
+  width: 140px;
+  height: auto;
+  border-radius: 6px;
+  border: 3px solid var(--white);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s;
+}
+.fan-1 { left: 0;    transform: rotate(-12deg); z-index: 1; }
+.fan-2 { left: 80px; transform: rotate(0deg) translateY(-14px); z-index: 3; }
+.fan-3 { left: 160px; transform: rotate(12deg); z-index: 2; }
+.hero-covers:hover .fan-1 { transform: rotate(-16deg) translateX(-12px); }
+.hero-covers:hover .fan-2 { transform: translateY(-24px); }
+.hero-covers:hover .fan-3 { transform: rotate(16deg) translateX(12px); }
+
+/* The flying paper airplane */
+.flying-plane {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  left: -80px;
+  top: 75%;
+  opacity: 0.9;
+  animation: fly 9s linear infinite;
+}
+@keyframes fly {
+  0%   { left: -80px; top: 75%; transform: rotate(-5deg); }
+  50%  { top: 30%; transform: rotate(-20deg); }
+  100% { left: 105%; top: 10%; transform: rotate(-10deg); }
+}
+/* People who turn off motion on their computer don't get the moving plane */
+@media (prefers-reduced-motion: reduce) {
+  .flying-plane { animation: none; left: auto; right: 24px; top: 16px; }
+  .fan { transition: none; }
+}
+
+/* On phones: stack the words on top of the covers */
+@media (max-width: 640px) {
+  .hero { text-align: center; padding: 40px 16px; }
+  .hero h1 { font-size: 34px; }
+  .hero-buttons { justify-content: center; }
+  .hero-covers { flex-basis: 260px; width: 260px; height: 220px; }
+  .fan { width: 120px; }
+  .fan-2 { left: 70px; }
+  .fan-3 { left: 140px; }
+}
