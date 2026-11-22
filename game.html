@@ -69,6 +69,7 @@
       <button type="button" id="sound-button" class="sound-button" aria-pressed="true">🔊 Sound on</button>
       <button type="button" id="music-button" class="sound-button" aria-pressed="true">🎵 Music on</button>
       <button type="button" id="pause-button" class="sound-button">⏸️ Pause</button>
+      <button type="button" id="ghost-button" class="sound-button" aria-pressed="true">👻 Ghost on</button>
     </div>
 
     <p class="game-help">🪙 Grab the gold coins for <strong>+1 bonus point</strong> each!<br>
@@ -76,7 +77,17 @@
       🌙 Make it to <strong>20 points</strong> and night falls!<br>
       👾 Reach <strong>50 points</strong> and... something big shows up. Good luck!<br>
       💯 Make it to <strong>100</strong> for an even bigger surprise!<br>
-      ⏸️ Press <strong>P</strong> or the Pause button to take a break.</p>
+      ⏸️ Press <strong>P</strong> or the Pause button to take a break.<br>
+      🌦️ Watch the weather: rain, wind, and thunderstorms at night!<br>
+      👻 Your <strong>ghost</strong> replays your best run. Race it!<br>
+      🔥 Think you can reach <strong>150</strong>? Someone's waiting for you there...</p>
+
+    <!-- COIN SHOP: spend the coins you grab in the game. The script fills it in. -->
+    <div class="shop">
+      <h3>🛒 Coin Shop</h3>
+      <p>You have <strong id="wallet">0</strong> 🪙 to spend. Every coin you grab in the game gets saved here!</p>
+      <div class="shop-items" id="shop-items"></div>
+    </div>
 
     <!-- TROPHY SHELF: the script below fills this in with your badges -->
     <div class="trophies">
@@ -146,6 +157,9 @@
     let coinsThisGame, powerupsThisGame, toasts;
     let boss, barks, bossDone;   // the Biscuit boss fight
     let cops, donuts, copsDone;  // the Not Smart Cops boss fight (at 100 points)
+    let antis, fireballs, antisDone;   // the PrayingAntis boss fight (at 150 points)
+    let weather, weatherTimer, windDir, rainDrops, bolt, boltsDodged, flash;   // the weather
+    let ghostRun, ghostData, ghostPassed;   // the ghost plane
 
     // ----- SOUND EFFECTS -----
     // We don't use sound files. The computer makes the sounds itself with the
@@ -218,7 +232,12 @@
       bark:    function () { beep("square", 420, 160, 0.18, 0.18); noise(0.1, 0.2, 1200); },
       siren:   function () { tune("square", [880, 660, 880, 660, 880, 660], 180, 0.08); },
       toss:    function () { beep("triangle", 300, 620, 0.14, 0.12); },
-      pause:   function () { beep("sine", 660, 440, 0.15, 0.12); }
+      pause:   function () { beep("sine", 660, 440, 0.15, 0.12); },
+      fire:    function () { noise(0.35, 0.3, 900); beep("sawtooth", 300, 110, 0.3, 0.12); },
+      thunder: function () { noise(1.2, 0.6, 250); },
+      zap:     function () { beep("square", 1200, 200, 0.3, 0.15); noise(0.3, 0.3, 3000); },
+      wind:    function () { noise(1.0, 0.25, 600); },
+      buy:     function () { tune("square", [784, 988, 1175, 1568], 70, 0.1); }
     };
     function play(name) { if (soundOn && audio) SOUNDS[name](); }
 
@@ -250,7 +269,7 @@
     setInterval(function () {
       if (!musicOn || !audio || state !== "playing") return;
       const tune = night > 0.5 ? NIGHT_MELODY : MELODY;   // a spookier tune at night
-      const fast = boss || cops ? 2 : 1;                   // the tune goes double-speed during a boss!
+      const fast = boss || cops || antis ? 2 : 1;          // the tune goes double-speed during a boss!
       for (let i = 0; i < fast; i++) {
         musicNote("triangle", tune[musicStep % 16], 0.14, 0.05);
         musicNote("square", BASS[musicStep % 16], 0.3, 0.025);
@@ -284,7 +303,10 @@
       { id: "boss",      icon: "🐶", name: "Dog Dodger",     how: "Survive Biscuit the boss" },
       { id: "donut",     icon: "🍩", name: "Donut Dodger",   how: "Survive the Not Smart Cops" },
       { id: "challenge", icon: "📅", name: "Challenger",     how: "Finish a daily challenge" },
-      { id: "skin",      icon: "🎨", name: "Fashion Flyer",  how: "Fly with a new skin" }
+      { id: "skin",      icon: "🎨", name: "Fashion Flyer",  how: "Fly with a new skin" },
+      { id: "antis",     icon: "🦗", name: "Bug Off!",       how: "Survive PrayingAntis" },
+      { id: "shopper",   icon: "🛒", name: "Big Spender",    how: "Buy something in the Coin Shop" },
+      { id: "storm",     icon: "⛈️", name: "Storm Chaser",   how: "Dodge 3 lightning bolts in one game" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -320,6 +342,7 @@
       if (chosen === "skyfinplus" && score >= 40) earn("speed");
       if (isUnlocked("skyfinplus")) earn("allplanes");
       if (skin !== "classic" && score >= 1) earn("skin");
+      if (boltsDodged >= 3) earn("storm");
       checkChallenge();
     }
 
@@ -348,6 +371,85 @@
       showSkins();
     }
 
+    // ----- COIN SHOP -----
+    // Every coin you grab is saved in your "wallet". Spend them on hats and skins!
+    let wallet = 0;
+    try { wallet = Number(localStorage.getItem("hdboc-wallet")) || 0; } catch (e) {}
+    let owned = {};   // what you've bought
+    try { owned = JSON.parse(localStorage.getItem("hdboc-owned")) || {}; } catch (e) { owned = {}; }
+    let hat = "none";
+    try { hat = localStorage.getItem("hdboc-hat") || "none"; } catch (e) {}
+    if (hat !== "none" && !owned[hat]) hat = "none";
+
+    const SHOP = [
+      { id: "party",     type: "hat",  icon: "🥳", name: "Party Hat",     price: 10 },
+      { id: "propeller", type: "hat",  icon: "🌀", name: "Propeller Cap", price: 20 },
+      { id: "police",    type: "hat",  icon: "👮", name: "Police Hat",    price: 25 },
+      { id: "cowboy",    type: "hat",  icon: "🤠", name: "Cowboy Hat",    price: 30 },
+      { id: "ice",       type: "skin", icon: "🧊", name: "Ice Skin",      price: 30 },
+      { id: "tophat",    type: "hat",  icon: "🎩", name: "Top Hat",       price: 40 },
+      { id: "rainbow",   type: "skin", icon: "🌈", name: "Rainbow Skin",  price: 50 },
+      { id: "crown",     type: "hat",  icon: "👑", name: "Crown",         price: 75 }
+    ];
+
+    function saveShop() {
+      try {
+        localStorage.setItem("hdboc-wallet", String(wallet));
+        localStorage.setItem("hdboc-owned", JSON.stringify(owned));
+        localStorage.setItem("hdboc-hat", hat);
+      } catch (e) {}
+    }
+
+    function showShop() {
+      document.getElementById("wallet").textContent = wallet;
+      const box = document.getElementById("shop-items");
+      box.innerHTML = "";
+      SHOP.forEach(function (item) {
+        const card = document.createElement("div");
+        const have = !!owned[item.id];
+        const wearing = item.type === "hat" ? hat === item.id : skin === item.id;
+        card.className = "shop-item" + (have ? " owned" : "") + (wearing ? " wearing" : "");
+        const icon = document.createElement("span");
+        icon.className = "shop-icon";
+        icon.textContent = item.icon;
+        const name = document.createElement("strong");
+        name.textContent = item.name;
+        const b = document.createElement("button");
+        b.type = "button";
+        if (!have) {
+          b.textContent = "Buy: " + item.price + " 🪙";
+          b.disabled = wallet < item.price;
+        } else if (wearing) {
+          b.textContent = item.type === "hat" ? "Take off" : "✓ Wearing";
+          b.disabled = item.type === "skin";
+        } else {
+          b.textContent = "Wear";
+        }
+        b.addEventListener("click", function () {
+          if (state === "playing" || state === "paused") return;   // no shopping mid-flight!
+          if (!have) {
+            if (wallet < item.price) return;
+            wallet -= item.price;
+            owned[item.id] = true;
+            if (item.type === "skin") skinWasUnlocked[item.id] = true;
+            play("buy");
+            earn("shopper");
+          }
+          // Put it on (or take the hat off)
+          if (item.type === "hat") hat = (have && wearing) ? "none" : item.id;
+          else {
+            skin = item.id;
+            try { localStorage.setItem("hdboc-skin", skin); } catch (e) {}
+          }
+          saveShop();
+          showShop();
+          showSkins();
+        });
+        card.append(icon, name, b);
+        box.appendChild(card);
+      });
+    }
+
     // ----- PLANE SKINS -----
     // A skin changes your plane's colors (and adds a cool pattern).
     // Earn badges to unlock them!
@@ -365,11 +467,18 @@
       { id: "fire",      name: "Fire",      how: "Get the Dog Dodger badge", badge: "boss",
         wing: "#ff8a2a", fold: "#d33a2c", pattern: "flames" },
       { id: "sprinkles", name: "Sprinkles", how: "Get the Donut Dodger badge", badge: "donut",
-        wing: "#ff9ecf", fold: "#e05a9e", pattern: "sprinkles" }
+        wing: "#ff9ecf", fold: "#e05a9e", pattern: "sprinkles" },
+      { id: "toxic",     name: "Toxic",     how: "Get the Bug Off! badge", badge: "antis",
+        wing: "#8be04a", fold: "#3a8a2a", pattern: "bubbles" },
+      { id: "ice",       name: "Ice",       how: "Buy it in the Coin Shop", shop: true,
+        wing: "#d8f3ff", fold: "#7cc4f2", pattern: "frost" },
+      { id: "rainbow",   name: "Rainbow",   how: "Buy it in the Coin Shop", shop: true,
+        wing: "#ff6b6b", fold: "#6b8bff", pattern: "rainbow" }
     ];
     function isSkinUnlocked(k) {
       if (k.need) return badgeCount() >= k.need;
       if (k.badge) return !!earned[k.badge];
+      if (k.shop) return !!owned[k.id];
       return true;
     }
     function S() { return SKINS.find(function (k) { return k.id === skin; }) || SKINS[0]; }
@@ -408,10 +517,38 @@
           skin = k.id;
           try { localStorage.setItem("hdboc-skin", skin); } catch (e) {}
           showSkins();
+          showShop();
         });
         picker.appendChild(b);
       });
     }
+
+    // ----- GHOST PLANE -----
+    // We remember where your plane was during your best run with each plane.
+    // Next time, a see-through "ghost" flies that same path so you can race it!
+    let ghostOn = true;
+    try { ghostOn = localStorage.getItem("hdboc-ghost-on") !== "off"; } catch (e) {}
+    function loadGhost() {
+      try { return JSON.parse(localStorage.getItem("hdboc-ghost-" + chosen)); } catch (e) { return null; }
+    }
+    function saveGhost() {
+      // Only save it if this run beat the old ghost
+      const old = ghostData ? ghostData.score : 0;
+      if (score > old && score >= 3) {
+        try { localStorage.setItem("hdboc-ghost-" + chosen, JSON.stringify({ score: score, ys: ghostRun })); } catch (e) {}
+      }
+    }
+    const ghostButton = document.getElementById("ghost-button");
+    function showGhostButton() {
+      ghostButton.textContent = ghostOn ? "👻 Ghost on" : "👻 Ghost off";
+      ghostButton.setAttribute("aria-pressed", ghostOn ? "true" : "false");
+    }
+    ghostButton.addEventListener("click", function () {
+      ghostOn = !ghostOn;
+      try { localStorage.setItem("hdboc-ghost-on", ghostOn ? "on" : "off"); } catch (e) {}
+      showGhostButton();
+    });
+    showGhostButton();
 
     // ----- DAILY CHALLENGE -----
     // Every day the website picks a new goal from this list.
@@ -541,6 +678,19 @@
       cops = null;       // the Not Smart Cops aren't here yet
       donuts = [];       // donuts they throw at you
       copsDone = false;
+      antis = null;      // PrayingAntis isn't here yet
+      fireballs = [];
+      antisDone = false;
+      weather = "clear"; // the weather starts nice and sunny
+      weatherTimer = 300;
+      windDir = 0;
+      rainDrops = [];
+      bolt = null;       // a lightning bolt that's about to strike
+      boltsDodged = 0;
+      flash = 0;         // the white flash when lightning hits
+      ghostRun = [];     // where you fly this game (for next time's ghost)
+      ghostData = loadGhost();
+      ghostPassed = false;
       score = 0;
       frame = 0;
       speed = P().speed;
@@ -631,7 +781,65 @@
         night = Math.min(1, night + 1 / 180);
       }
 
-      plane.vy += P().gravity;
+      // ----- WEATHER -----
+      // Every so often the weather changes. No wind or lightning during a boss fight!
+      const bossHere = boss || cops || antis;
+      if (score >= 5) weatherTimer--;
+      if (weatherTimer <= 0) {
+        weatherTimer = 500 + Math.random() * 300;
+        const r = Math.random();
+        if (bossHere || r < 0.4) weather = "clear";
+        else if (r < 0.7) weather = night > 0.5 ? "storm" : "rain";
+        else weather = "wind";
+        if (weather === "wind") {
+          windDir = Math.random() < 0.5 ? -1 : 1;
+          toasts.push({ text: "💨 WIND! Pushing you " + (windDir < 0 ? "UP" : "DOWN") + "!", t: 120 });
+          play("wind");
+        } else if (weather === "rain") {
+          toasts.push({ text: "🌧️ Rain! Your plane gets heavy!", t: 120 });
+        } else if (weather === "storm") {
+          toasts.push({ text: "⛈️ THUNDERSTORM! Watch for lightning!", t: 120 });
+          play("thunder");
+        }
+      }
+      const rainy = weather === "rain" || weather === "storm";
+      const windPush = weather === "wind" && !bossHere ? windDir * 0.1 : 0;
+      const rainPush = rainy ? 0.03 : 0;   // wet paper is heavier!
+
+      plane.vy += P().gravity + windPush + rainPush;
+
+      // Raindrops falling
+      if (rainy && rainDrops.length < 90) rainDrops.push({ x: Math.random() * (W + 100), y: -10, s: 7 + Math.random() * 4 });
+      rainDrops.forEach(function (d) { d.y += d.s; d.x -= 2; });
+      rainDrops = rainDrops.filter(function (d) { return d.y < GROUND; });
+
+      // LIGHTNING: it aims at the half of the sky you're in. Move to the other half!
+      if (flash > 0) flash--;
+      if (weather === "storm" && !bossHere && !bolt && Math.random() < 1 / 160) {
+        bolt = { top: plane.y < GROUND / 2, warn: 80, strike: 0 };
+      }
+      if (bolt) {
+        if (bolt.warn > 0) {
+          bolt.warn--;
+          if (bolt.warn === 0) {
+            bolt.strike = 15;
+            flash = 12;
+            play("thunder");
+            const inZone = bolt.top ? plane.y < GROUND / 2 : plane.y >= GROUND / 2;
+            if (inZone) {
+              score = Math.max(0, score - 3);
+              plane.vy = 4;
+              play("zap");
+              toasts.push({ text: "⚡ ZAPPED! -3", t: 90 });
+            } else {
+              boltsDodged++;
+            }
+          }
+        } else {
+          bolt.strike--;
+          if (bolt.strike <= 0) bolt = null;
+        }
+      }
       plane.y += plane.vy;
 
       // Slow-mo makes the world move at half speed
@@ -640,7 +848,7 @@
       if (slowTimer > 0) slowTimer--;
 
       // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
-      if (!boss && !cops) spawnClock += slow;   // nothing new spawns during a boss fight
+      if (!boss && !cops && !antis) spawnClock += slow;   // nothing new spawns during a boss fight
       if (spawnClock >= SPAWN_EVERY) {
         spawnClock -= SPAWN_EVERY;
         addStack();
@@ -682,6 +890,8 @@
           c.got = true;
           score += 1;
           coinsThisGame++;
+          wallet++;
+          try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
           play("coin");
           pops.push({ x: c.x, y: c.y, t: 40 });
           checkUnlock();
@@ -798,6 +1008,66 @@
       });
       donuts = donuts.filter(function (d) { return d.x > -40 && d.y < GROUND + 30; });
 
+      // ----- BOSS 3: PRAYINGANTIS -----
+      // At 150 points, the hero shows up. He thinks your plane is a bug,
+      // so he shoots fire at it! Dodge 12 fire shots to win.
+      if (!antis && !antisDone && !boss && !cops && score >= 150) {
+        antis = { x: W + 130, y: H / 2, shotsLeft: 12, timer: 100, leaving: false, shots: 0 };
+        weather = "clear";
+        bolt = null;
+        play("fire");
+        toasts.push({ text: "🦗 PRAYINGANTIS THINKS YOU'RE A BUG!", t: 150 });
+      }
+      if (antis) {
+        const antisHome = 310;
+        if (antis.leaving) { antis.x += 2.5; antis.y -= 3; }   // he flies up and away
+        else {
+          if (antis.x > antisHome) antis.x -= 2;
+          antis.y = H / 2 - 10 + Math.sin(frame / 30) * 130;
+        }
+        if (!antis.leaving && antis.x <= antisHome + 2) {
+          antis.timer -= slow;
+          if (antis.timer <= 0 && antis.shotsLeft > 0) {
+            antis.shotsLeft--;
+            antis.shots++;
+            antis.timer = 50 + antis.shotsLeft * 2;
+            // Shoot from his mouth, aimed at the plane
+            const sx = antis.x - 45, sy = antis.y - 45;
+            const vx = -4.6;
+            const vy = Math.max(-3, Math.min(3, (plane.y - sy) / ((sx - plane.x) / 4.6)));
+            fireballs.push({ x: sx, y: sy, vx: vx, vy: vy });
+            // Every 3rd shot is a big 3-way blast!
+            if (antis.shots % 3 === 0) {
+              fireballs.push({ x: sx, y: sy, vx: vx, vy: vy - 1.4 });
+              fireballs.push({ x: sx, y: sy, vx: vx, vy: vy + 1.4 });
+            }
+            play("fire");
+          }
+        }
+        if (!antis.leaving && antis.shotsLeft === 0 && fireballs.length === 0) {
+          antis.leaving = true;
+          antisDone = true;
+          score += 15;
+          toasts.push({ text: "🦗 \"Oh, it's a PLANE!\" +15", t: 150 });
+          earn("antis");
+          checkUnlock();
+        }
+        if (antis.leaving && (antis.x > W + 150 || antis.y < -150)) antis = null;
+      }
+      fireballs.forEach(function (f) {
+        f.x += f.vx * slow;
+        f.y += f.vy * slow;
+        if (!f.passed && f.x < plane.x - 30) { f.passed = true; score += 1; checkUnlock(); }
+      });
+      fireballs = fireballs.filter(function (f) { return f.x > -40 && f.y > -40 && f.y < GROUND + 40; });
+
+      // Remember where you are, for your ghost next time (every other frame)
+      if (frame % 2 === 0) ghostRun.push(Math.round(plane.y));
+      if (ghostOn && ghostData && !ghostPassed && frame / 2 >= ghostData.ys.length) {
+        ghostPassed = true;
+        toasts.push({ text: "👻 You beat your ghost's time!", t: 120 });
+      }
+
       if (toasts) {
         toasts.forEach(function (t) { t.t--; });
         toasts = toasts.filter(function (t) { return t.t > 0; });
@@ -823,6 +1093,10 @@
       for (const d of donuts) {
         const dx = d.x - plane.x, dy = d.y - plane.y;
         if (dx * dx + dy * dy < (14 + 10 * P().size) * (14 + 10 * P().size)) hit = true;
+      }
+      for (const f of fireballs) {
+        const dx = f.x - plane.x, dy = f.y - plane.y;
+        if (dx * dx + dy * dy < (12 + 10 * P().size) * (12 + 10 * P().size)) hit = true;
       }
       if (hit) crash();
     }
@@ -858,6 +1132,8 @@
     function crash() {
       state = "over";
       play("crash");
+      saveGhost();
+      showShop();
       frame = 0;
       if (score > best()) {
         bests[chosen] = score;
@@ -968,8 +1244,17 @@
 
       // A skin changes the colors (Classic keeps the plane's own colors)
       const k = S();
-      const wing = k.wing || p.wing;
-      const fold = k.fold || p.fold;
+      let wing = k.wing || p.wing;
+      let fold = k.fold || p.fold;
+      if (k.pattern === "rainbow") {
+        // Rainbow: a stripe of every color across the wings
+        const g = ctx.createLinearGradient(-20, -12, nose, 12);
+        ["#ff5a5a", "#ffa94d", "#ffe34d", "#6bd36b", "#4da6ff", "#a06bff"].forEach(function (c, i) {
+          g.addColorStop(i / 5, c);
+        });
+        wing = g;
+        fold = g;
+      }
 
       ctx.fillStyle = wing;
       ctx.beginPath();
@@ -999,6 +1284,16 @@
             ctx.fillRect(x - 0.75, y - 3, 1.5, 6);
             ctx.fillRect(x - 3, y - 0.75, 6, 1.5);
           }
+        } else if (k.pattern === "bubbles") {
+          ctx.strokeStyle = "rgba(255,255,255,0.8)";
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(x, y, 1.5 + (i % 2), 0, Math.PI * 2); ctx.stroke();
+          ctx.strokeStyle = "#111";
+          ctx.lineWidth = 3 / scale;
+        } else if (k.pattern === "frost") {
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(x - 2.5, y - 0.5, 5, 1);
+          ctx.fillRect(x - 0.5, y - 2.5, 1, 5);
         } else if (k.pattern === "sprinkles") {
           ctx.save();
           ctx.translate(x, y);
@@ -1015,6 +1310,58 @@
         ctx.beginPath();
         ctx.moveTo(-14, -8); ctx.lineTo(-22, -20); ctx.lineTo(-8, -10); ctx.closePath();
         ctx.fill(); ctx.stroke();
+      }
+      drawHat();
+      ctx.restore();
+    }
+
+    // The hat you bought in the Coin Shop, sitting on top of the plane
+    function drawHat() {
+      if (hat === "none") return;
+      ctx.save();
+      ctx.translate(-4, -8);
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#111";
+      if (hat === "party") {
+        ctx.fillStyle = "#d33a2c";
+        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(0, -16); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#f2c230"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-3.5, -5); ctx.lineTo(3.5, -5); ctx.moveTo(-2, -10); ctx.lineTo(2, -10); ctx.stroke();
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath(); ctx.arc(0, -16, 2.5, 0, Math.PI * 2); ctx.fill();
+      } else if (hat === "propeller") {
+        ctx.fillStyle = "#2f55a0";
+        ctx.beginPath(); ctx.arc(0, 0, 6, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(0, -10); ctx.stroke();
+        const w = 8 * Math.cos(frame / 3);   // the propeller spins!
+        ctx.fillStyle = "#d33a2c"; ctx.fillRect(0, -11.5, w, 2.5);
+        ctx.fillStyle = "#f2c230"; ctx.fillRect(0, -11.5, -w, 2.5);
+      } else if (hat === "police") {
+        ctx.fillStyle = "#1d4e89";
+        ctx.fillRect(-6, -8, 12, 7); ctx.strokeRect(-6, -8, 12, 7);
+        ctx.fillStyle = "#111"; ctx.fillRect(-8, -2, 14, 2.5);
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath(); ctx.arc(0, -4.5, 1.8, 0, Math.PI * 2); ctx.fill();
+      } else if (hat === "cowboy") {
+        ctx.fillStyle = "#a0703a";
+        ctx.fillRect(-5, -9, 10, 8); ctx.strokeRect(-5, -9, 10, 8);
+        ctx.fillStyle = "#8a5a2a";
+        ctx.beginPath(); ctx.ellipse(0, -1, 10, 2.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#111"; ctx.fillRect(-5, -4, 10, 1.5);
+      } else if (hat === "tophat") {
+        ctx.fillStyle = "#111";
+        ctx.fillRect(-5, -15, 10, 13);
+        ctx.fillRect(-8, -2, 16, 2.5);
+        ctx.fillStyle = "#d33a2c"; ctx.fillRect(-5, -5, 10, 2.5);
+      } else if (hat === "crown") {
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath();
+        ctx.moveTo(-6, 0); ctx.lineTo(-6, -9); ctx.lineTo(-3, -5); ctx.lineTo(0, -11);
+        ctx.lineTo(3, -5); ctx.lineTo(6, -9); ctx.lineTo(6, 0); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#d33a2c";
+        ctx.beginPath(); ctx.arc(0, -3, 1.5, 0, Math.PI * 2); ctx.fill();
       }
       ctx.restore();
     }
@@ -1236,6 +1583,161 @@
       });
     }
 
+    // PrayingAntis: mantis body, ant head, blue mask, red cape (facing left)
+    function drawAntis() {
+      if (!antis) return;
+      const x = antis.x, y = antis.y;
+      ctx.save();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#111";
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      // red cape, flapping in the wind
+      const flap = Math.sin(frame / 6) * 10;
+      ctx.fillStyle = "#d33a2c";
+      ctx.beginPath();
+      ctx.moveTo(x - 5, y - 30);
+      ctx.quadraticCurveTo(x + 60, y - 20 + flap, x + 85, y + 60 + flap);
+      ctx.lineTo(x + 30, y + 80);
+      ctx.quadraticCurveTo(x + 20, y + 20, x - 5, y - 30);
+      ctx.fill(); ctx.stroke();
+      // long green mantis body
+      ctx.fillStyle = "#6bbf3a";
+      ctx.beginPath(); ctx.ellipse(x + 15, y + 35, 20, 55, -0.25, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // stripes on the belly
+      ctx.strokeStyle = "#3a8a2a"; ctx.lineWidth = 3;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath(); ctx.moveTo(x + 2 + i * 4, y + 30 + i * 16); ctx.lineTo(x + 26 + i * 4, y + 24 + i * 16); ctx.stroke();
+      }
+      // legs
+      ctx.strokeStyle = "#3a8a2a"; ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x + 10, y + 60); ctx.lineTo(x - 10, y + 85); ctx.lineTo(x - 20, y + 100);
+      ctx.moveTo(x + 25, y + 70); ctx.lineTo(x + 20, y + 100); ctx.lineTo(x + 10, y + 115);
+      ctx.stroke();
+      // folded "praying" arms
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 9;
+      ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x - 40, y + 10); ctx.lineTo(x - 35, y - 20); ctx.stroke();
+      ctx.strokeStyle = "#6bbf3a"; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x - 40, y + 10); ctx.lineTo(x - 35, y - 20); ctx.stroke();
+      // antennae
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x - 15, y - 80); ctx.quadraticCurveTo(x - 30, y - 115, x - 50, y - 110);
+      ctx.moveTo(x - 2, y - 82); ctx.quadraticCurveTo(x, y - 120, x - 15, y - 125);
+      ctx.stroke();
+      // big ant head
+      ctx.lineWidth = 4;
+      ctx.fillStyle = "#5a3a1a";
+      ctx.beginPath(); ctx.ellipse(x - 12, y - 52, 30, 28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // blue hero mask with angry white eyes
+      ctx.fillStyle = "#2f55a0";
+      ctx.beginPath(); ctx.ellipse(x - 18, y - 60, 27, 10, -0.1, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.ellipse(x - 32, y - 60, 7, 5, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(x - 10, y - 61, 6, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(x - 34, y - 59, 2.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x - 12, y - 60, 2.5, 0, Math.PI * 2); ctx.fill();
+      // pincer jaws, glowing orange right before he shoots
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x - 32, y - 38); ctx.quadraticCurveTo(x - 48, y - 40, x - 46, y - 30);
+      ctx.moveTo(x - 25, y - 30); ctx.quadraticCurveTo(x - 38, y - 22, x - 44, y - 26);
+      ctx.stroke();
+      if (!antis.leaving && antis.timer < 18) {
+        ctx.fillStyle = "rgba(255, 150, 40, 0.9)";
+        ctx.beginPath(); ctx.arc(x - 45, y - 38, 7 + Math.random() * 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+      if (!antis.leaving) comicText("Fire shots left: " + antis.shotsLeft, x - 10, y + 135, 18, "#ffa94d");
+    }
+
+    // A fireball with a flickery tail
+    function drawFireballs() {
+      fireballs.forEach(function (f) {
+        for (let i = 3; i >= 1; i--) {
+          ctx.fillStyle = "rgba(242, 134, 42, " + (0.5 - i * 0.12) + ")";
+          ctx.beginPath(); ctx.arc(f.x + i * 9, f.y - f.vy * i * 2, 12 - i * 2, 0, Math.PI * 2); ctx.fill();
+        }
+        const g = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, 14);
+        g.addColorStop(0, "#fff6c9");
+        g.addColorStop(0.4, "#f2c230");
+        g.addColorStop(0.8, "#f2862a");
+        g.addColorStop(1, "#d33a2c");
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(f.x, f.y, 13 + Math.random() * 2, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+
+    // Rain, wind streaks, and lightning
+    function drawWeather() {
+      if (rainDrops.length) {
+        ctx.strokeStyle = "rgba(200, 220, 255, 0.6)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        rainDrops.forEach(function (d) { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 3, d.y + 12); });
+        ctx.stroke();
+      }
+      if (weather === "wind" && !(boss || cops || antis)) {
+        // white streaks blowing in the wind's direction
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) {
+          const x = (i * 97 - frame * 6) % (W + 120);
+          const wx = x < 0 ? x + W + 120 : x;
+          const wy = ((i * 131 + frame * 3 * windDir) % GROUND + GROUND) % GROUND;
+          ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + 40, wy - 10 * windDir); ctx.stroke();
+        }
+        comicText(windDir < 0 ? "💨 ⬆" : "💨 ⬇", 40, 40, 22, "#ffffff");
+      }
+      if (weather === "storm") {
+        // darker storm sky
+        ctx.fillStyle = "rgba(20, 20, 40, 0.25)";
+        ctx.fillRect(0, 0, W, GROUND);
+      }
+      if (bolt) {
+        const y1 = bolt.top ? 0 : GROUND / 2, y2 = bolt.top ? GROUND / 2 : GROUND;
+        if (bolt.warn > 0) {
+          // Warning: the danger zone blinks yellow
+          if (Math.floor(bolt.warn / 8) % 2 === 0) {
+            ctx.fillStyle = "rgba(242, 194, 48, 0.25)";
+            ctx.fillRect(0, y1, W, y2 - y1);
+          }
+          comicText("⚡ MOVE! ⚡", W / 2, (y1 + y2) / 2, 30, "#f2c230");
+        } else {
+          // The bolt itself: a zigzag line
+          ctx.strokeStyle = "#fffbe0";
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          let bx = plane.x + 10;
+          ctx.moveTo(bx, y1);
+          for (let y = y1; y < y2; y += 30) {
+            bx += (Math.random() - 0.5) * 50;
+            ctx.lineTo(bx, y + 30);
+          }
+          ctx.stroke();
+        }
+      }
+      if (flash > 0) {
+        ctx.fillStyle = "rgba(255, 255, 255, " + (flash / 16) + ")";
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    // The see-through ghost of your best run
+    function drawGhost() {
+      if (!ghostOn || !ghostData || ghostPassed) return;
+      const i = Math.floor(frame / 2);
+      const gy = ghostData.ys[i];
+      if (gy === undefined) return;
+      const before = ghostData.ys[Math.max(0, i - 1)];
+      ctx.globalAlpha = 0.35;
+      drawPlaneShape(plane.x, gy, Math.max(-0.5, Math.min(0.9, (gy - before) * 0.07)), chosen === "skyfinplus" ? 0.75 : 1);
+      ctx.globalAlpha = 1;
+      comicText("👻 " + ghostData.score, plane.x, gy - 22, 13, "rgba(255,255,255,0.8)");
+    }
+
     function drawPlane() {
       let tilt = Math.max(-0.5, Math.min(0.9, plane.vy * 0.07));
       if (loopTimer > 0) tilt = -plane.spin;   // spinning backwards = a loop-the-loop!
@@ -1281,8 +1783,9 @@
       drawBackground();
       drawStacks();
       const live = state === "playing" || state === "paused";
-      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); }
+      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawGhost(); }
       if (state !== "start") drawPlane();
+      if (live) drawWeather();
 
       if (live) {
         comicText(String(score), W / 2, 70, 52, "#ffffff");
@@ -1313,6 +1816,7 @@
         const next = nextLocked();
         if (next) comicText("Score 10 to unlock " + next.name + "!", W / 2, 510, 18, "#ffffff");
         if (daily && !daily.done) comicText("📅 " + todaysChallenge().text, W / 2, 545, 17, "#f2c230");
+        comicText("🪙 " + wallet + " coins to spend in the shop", W / 2, 588, 16, "#ffffff");
       } else {
         comicText("CRASH!", W / 2, 200, 60, "#d33a2c");
         comicText("Score: " + score, W / 2, 270, 32, "#ffffff");
@@ -1355,6 +1859,7 @@
     showBadges();
     pickChallenge();
     showChallenge();
+    showShop();
     loop();
   </script>
 

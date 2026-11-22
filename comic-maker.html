@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comic Maker - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- COMIC MAKER -->
+  <section class="maker-section">
+    <a class="back" href="characters.html">&larr; Back to the characters</a>
+    <h2>🖍️ Comic Maker</h2>
+    <p class="peek-intro">Make your own HDBOC comic panel! Pick a background, add characters and speech bubbles, then drag them around.</p>
+
+    <div class="maker">
+      <!-- STEP 1: background -->
+      <div class="maker-row">
+        <strong>1. Background:</strong>
+        <div class="maker-buttons" id="bg-buttons">
+          <button type="button" data-bg="city">🏙️ City</button>
+          <button type="button" data-bg="field">⚾ Ballpark</button>
+          <button type="button" data-bg="lab">🧪 Bug lab</button>
+          <button type="button" data-bg="sky">☁️ Sky</button>
+          <button type="button" data-bg="plain">⬜ Plain</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: characters (the script adds a button for each one) -->
+      <div class="maker-row">
+        <strong>2. Add characters:</strong>
+        <div class="maker-buttons" id="char-buttons"></div>
+      </div>
+
+      <!-- STEP 3: words -->
+      <div class="maker-row">
+        <strong>3. Add words:</strong>
+        <div class="maker-buttons">
+          <input type="text" id="words" maxlength="80" placeholder="Type what they say..." aria-label="Words for the bubble">
+          <button type="button" id="add-bubble">💬 Speech bubble</button>
+          <button type="button" id="add-caption">📜 Caption box</button>
+        </div>
+      </div>
+
+      <!-- THE PANEL: this canvas is your comic -->
+      <canvas id="panel" width="800" height="500" aria-label="Your comic panel. Drag things around to move them."></canvas>
+
+      <!-- Buttons for the thing you clicked on -->
+      <div class="maker-buttons maker-tools">
+        <button type="button" id="bigger">➕ Bigger</button>
+        <button type="button" id="smaller">➖ Smaller</button>
+        <button type="button" id="flip">↔️ Flip</button>
+        <button type="button" id="remove">🗑️ Delete</button>
+        <button type="button" id="clear">🧹 Start over</button>
+        <button type="button" id="save" class="save-comic">💾 Save my comic</button>
+      </div>
+      <p class="hint" id="maker-hint">Click something in your comic to pick it. Then you can move it, resize it, flip it, or change its words.</p>
+    </div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <!-- JAVASCRIPT: the comic maker -->
+  <script>
+    const canvas = document.getElementById("panel");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+
+    // ----- THE CHARACTERS -----
+    // Cut out of our comic covers (same numbers as on the characters page).
+    // size = how tall they start out
+    const CHARACTERS = [
+      { id: "barry",   name: "Barry",        img: "not-smart-cops.png",   x: 215, y: 845,  w: 230, h: 635, size: 260 },
+      { id: "lou",     name: "Lou",          img: "not-smart-cops.png",   x: 590, y: 960,  w: 330, h: 520, size: 220 },
+      { id: "antis",   name: "PrayingAntis", img: "praying-antis.png",    x: 290, y: 640,  w: 520, h: 820, size: 280 },
+      { id: "biscuit", name: "Biscuit",      img: "peek-antis.png",       x: 415, y: 425,  w: 100, h: 80,  size: 110 },
+      { id: "gus",     name: "Gus",          img: "not-smart-sports.png", x: 355, y: 890,  w: 240, h: 590, size: 260 },
+      { id: "ray",     name: "Ray",          img: "not-smart-sports.png", x: 730, y: 1060, w: 230, h: 440, size: 220 }
+    ];
+
+    // Load each picture once
+    const pictures = {};
+    CHARACTERS.forEach(function (c) {
+      if (!pictures[c.img]) {
+        const im = new Image();
+        im.src = c.img;
+        im.onload = draw;
+        pictures[c.img] = im;
+      }
+    });
+
+    let bg = "city";
+    let items = [];       // everything in the comic (characters and bubbles)
+    let selected = null;  // the thing you clicked on
+    let drag = null;      // where you grabbed it
+
+    // ----- BACKGROUNDS (drawn with code) -----
+    function drawBackground() {
+      if (bg === "city") {
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, "#7cc4f2"); sky.addColorStop(1, "#d6effc");
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        const buildings = [[0, 180, 120], [110, 120, 100], [200, 220, 140], [330, 90, 110], [430, 170, 130], [550, 130, 120], [660, 200, 150]];
+        buildings.forEach(function (b, i) {
+          ctx.fillStyle = ["#6b7280", "#4b5563", "#9ca3af"][i % 3];
+          ctx.fillRect(b[0], b[1], b[2], H - b[1]);
+          ctx.fillStyle = "#fff6c9";
+          for (let y = b[1] + 20; y < H - 90; y += 40) {
+            for (let x = b[0] + 15; x < b[0] + b[2] - 20; x += 30) ctx.fillRect(x, y, 14, 20);
+          }
+        });
+        ctx.fillStyle = "#b8b8b8"; ctx.fillRect(0, H - 70, W, 70);
+        ctx.fillStyle = "#8a8a8a"; ctx.fillRect(0, H - 70, W, 6);
+      } else if (bg === "field") {
+        ctx.fillStyle = "#7cc4f2"; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#1f4a2a"; ctx.fillRect(0, 150, W, 40);   // the outfield wall
+        ctx.fillStyle = "#f2c230"; ctx.fillRect(0, 150, W, 5);
+        for (let i = 0; i < 8; i++) {
+          ctx.fillStyle = i % 2 ? "#4f9a3a" : "#5aad44";
+          ctx.fillRect(0, 190 + i * 40, W, 40);
+        }
+        ctx.fillStyle = "#c98a4a";
+        ctx.beginPath(); ctx.moveTo(W / 2, 260); ctx.lineTo(W / 2 + 260, H); ctx.lineTo(W / 2 - 260, H); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#ffffff";
+        [[W / 2, 270], [W / 2 + 160, 400], [W / 2 - 160, 400]].forEach(function (p) { ctx.fillRect(p[0] - 10, p[1] - 10, 20, 20); });
+      } else if (bg === "lab") {
+        ctx.fillStyle = "#e5e7eb"; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = "#c8ccd2"; ctx.lineWidth = 2;
+        for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H - 110); ctx.stroke(); }
+        for (let y = 0; y < H - 110; y += 50) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+        ctx.fillStyle = "#6b7280"; ctx.fillRect(0, H - 110, W, 110);
+        ctx.fillStyle = "#4b5563"; ctx.fillRect(0, H - 110, W, 14);   // the lab table
+        // beakers of toxic waste
+        [[80, 60], [150, 45], [650, 70], [720, 50]].forEach(function (b) {
+          const x = b[0], h = b[1], y = H - 110 - h;
+          ctx.fillStyle = "#8be04a"; ctx.fillRect(x, y + h * 0.4, 40, h * 0.6);
+          ctx.strokeStyle = "#111"; ctx.lineWidth = 3; ctx.strokeRect(x, y, 40, h);
+        });
+        ctx.fillStyle = "#d33a2c"; ctx.fillRect(330, 30, 140, 40);
+        ctx.fillStyle = "#ffffff"; ctx.font = "bold 22px 'Segoe UI', Arial, sans-serif"; ctx.textAlign = "center";
+        ctx.fillText("⚠️ TOXIC", 400, 58);
+      } else if (bg === "sky") {
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, "#4da6ff"); sky.addColorStop(1, "#d6effc");
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#ffffff";
+        [[120, 100, 1], [500, 70, 1.3], [300, 330, 0.9], [680, 280, 1.1]].forEach(function (c) {
+          ctx.beginPath();
+          ctx.arc(c[0], c[1], 30 * c[2], 0, Math.PI * 2);
+          ctx.arc(c[0] + 35 * c[2], c[1] - 14 * c[2], 38 * c[2], 0, Math.PI * 2);
+          ctx.arc(c[0] + 72 * c[2], c[1], 28 * c[2], 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else {
+        ctx.fillStyle = "#fff8e7"; ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    // ----- WORDS: break long text into lines that fit -----
+    function wrap(text, maxWidth) {
+      const words = text.split(" ");
+      const lines = [];
+      let line = "";
+      words.forEach(function (w) {
+        const test = line ? line + " " + w : w;
+        if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; }
+        else line = test;
+      });
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    // Works out how big a thing is: { x, y, w, h } (x, y = top-left corner)
+    function box(it) {
+      if (it.type === "char") {
+        const c = CHARACTERS.find(function (k) { return k.id === it.id; });
+        const h = c.size * it.scale;
+        const w = h * c.w / c.h;
+        return { x: it.x - w / 2, y: it.y - h / 2, w: w, h: h };
+      }
+      ctx.font = "bold " + Math.round(22 * it.scale) + "px 'Comic Sans MS', 'Segoe UI', Arial, sans-serif";
+      const lines = wrap(it.text, 220 * it.scale);
+      const lineH = 26 * it.scale;
+      const w = Math.max.apply(null, lines.map(function (l) { return ctx.measureText(l).width; })) + 36 * it.scale;
+      const h = lines.length * lineH + 26 * it.scale;
+      return { x: it.x - w / 2, y: it.y - h / 2, w: w, h: h, lines: lines, lineH: lineH };
+    }
+
+    function drawItem(it) {
+      const b = box(it);
+      ctx.save();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#111";
+      if (it.type === "char") {
+        const c = CHARACTERS.find(function (k) { return k.id === it.id; });
+        const pic = pictures[c.img];
+        if (it.flip) {   // flip it like a mirror
+          ctx.translate(it.x, 0); ctx.scale(-1, 1); ctx.translate(-it.x, 0);
+        }
+        if (pic.complete && pic.naturalWidth) ctx.drawImage(pic, c.x, c.y, c.w, c.h, b.x, b.y, b.w, b.h);
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+      } else if (it.type === "bubble") {
+        // the white bubble, with a pointy tail
+        ctx.fillStyle = "#ffffff";
+        const tailX = it.flip ? b.x + b.w * 0.75 : b.x + b.w * 0.25;
+        const tipX = it.flip ? tailX + 30 * it.scale : tailX - 30 * it.scale;
+        ctx.beginPath();
+        ctx.ellipse(it.x, it.y, b.w / 2 + 10 * it.scale, b.h / 2 + 6 * it.scale, 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(tailX - 12 * it.scale, it.y + b.h / 2);
+        ctx.lineTo(tipX, it.y + b.h / 2 + 40 * it.scale);
+        ctx.lineTo(tailX + 12 * it.scale, it.y + b.h / 2 - 4);
+        ctx.fill(); ctx.stroke();
+        // cover the line where the tail meets the bubble
+        ctx.beginPath();
+        ctx.ellipse(it.x, it.y, b.w / 2 + 8 * it.scale, b.h / 2 + 4 * it.scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // caption box: a yellow rectangle
+        ctx.fillStyle = "#f2c230";
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+      }
+      if (it.type !== "char") {
+        ctx.fillStyle = "#111";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        b.lines.forEach(function (l, i) {
+          ctx.fillText(l, it.x, b.y + 13 * it.scale + b.lineH * (i + 0.5));
+        });
+      }
+      ctx.restore();
+    }
+
+    function draw(saving) {
+      drawBackground();
+      items.forEach(drawItem);
+      // a dashed outline around the thing you picked (not in the saved picture)
+      if (selected && saving !== true) {
+        const b = box(selected);
+        ctx.save();
+        ctx.setLineDash([10, 6]);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#d33a2c";
+        ctx.strokeRect(b.x - 8, b.y - 8, b.w + 16, b.h + 16);
+        ctx.restore();
+      }
+      // small HDBOC logo text in the corner
+      ctx.save();
+      ctx.font = "bold 16px 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "right";
+      ctx.lineWidth = 4; ctx.strokeStyle = "#111"; ctx.fillStyle = "#f2c230";
+      ctx.strokeText("HDBOC Comics", W - 12, H - 12);
+      ctx.fillText("HDBOC Comics", W - 12, H - 12);
+      ctx.restore();
+      // the thick black comic panel border
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = "#111";
+      ctx.strokeRect(5, 5, W - 10, H - 10);
+    }
+
+    // ----- PICKING THINGS UP AND DRAGGING THEM -----
+    // Changes a mouse/finger spot into canvas spots (the canvas can be shrunk on phones)
+    function spot(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+    }
+    function thingAt(p) {
+      for (let i = items.length - 1; i >= 0; i--) {   // check the top one first
+        const b = box(items[i]);
+        if (p.x >= b.x - 8 && p.x <= b.x + b.w + 8 && p.y >= b.y - 8 && p.y <= b.y + b.h + 8) return items[i];
+      }
+      return null;
+    }
+    canvas.addEventListener("pointerdown", function (e) {
+      const p = spot(e);
+      selected = thingAt(p);
+      if (selected) {
+        // bring it to the front
+        items.splice(items.indexOf(selected), 1);
+        items.push(selected);
+        drag = { dx: p.x - selected.x, dy: p.y - selected.y };
+        canvas.setPointerCapture(e.pointerId);
+        if (selected.type !== "char") document.getElementById("words").value = selected.text;
+      }
+      showTools();
+      draw();
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!drag || !selected) return;
+      const p = spot(e);
+      selected.x = Math.max(0, Math.min(W, p.x - drag.dx));
+      selected.y = Math.max(0, Math.min(H, p.y - drag.dy));
+      draw();
+    });
+    canvas.addEventListener("pointerup", function () { drag = null; });
+    canvas.addEventListener("pointercancel", function () { drag = null; });
+
+    // ----- BUTTONS -----
+    function addItem(it) {
+      items.push(it);
+      selected = it;
+      showTools();
+      draw();
+    }
+
+    document.querySelectorAll("#bg-buttons button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        bg = b.dataset.bg;
+        document.querySelectorAll("#bg-buttons button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        draw();
+      });
+    });
+    document.querySelector('[data-bg="city"]').classList.add("on");
+
+    const charButtons = document.getElementById("char-buttons");
+    CHARACTERS.forEach(function (c, i) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "+ " + c.name;
+      b.addEventListener("click", function () {
+        // each new character shows up in a slightly different spot
+        addItem({ type: "char", id: c.id, x: 160 + (items.length * 110) % 500, y: H - 30 - c.size / 2, scale: 1, flip: false });
+      });
+      charButtons.appendChild(b);
+    });
+
+    const words = document.getElementById("words");
+    function addWords(type) {
+      const text = words.value.trim() || (type === "bubble" ? "Hi!" : "Meanwhile...");
+      addItem({ type: type, text: text, x: W / 2, y: type === "bubble" ? 90 : 50, scale: 1, flip: false });
+    }
+    document.getElementById("add-bubble").addEventListener("click", function () { addWords("bubble"); });
+    document.getElementById("add-caption").addEventListener("click", function () { addWords("caption"); });
+    words.addEventListener("keydown", function (e) { if (e.key === "Enter") addWords("bubble"); });
+    // Typing changes the words of the bubble you picked
+    words.addEventListener("input", function () {
+      if (selected && selected.type !== "char" && words.value.trim()) {
+        selected.text = words.value;
+        draw();
+      }
+    });
+
+    document.getElementById("bigger").addEventListener("click", function () {
+      if (selected) { selected.scale = Math.min(2.5, selected.scale * 1.15); draw(); }
+    });
+    document.getElementById("smaller").addEventListener("click", function () {
+      if (selected) { selected.scale = Math.max(0.4, selected.scale / 1.15); draw(); }
+    });
+    document.getElementById("flip").addEventListener("click", function () {
+      if (selected) { selected.flip = !selected.flip; draw(); }
+    });
+    function removeSelected() {
+      if (!selected) return;
+      items.splice(items.indexOf(selected), 1);
+      selected = null;
+      showTools();
+      draw();
+    }
+    document.getElementById("remove").addEventListener("click", removeSelected);
+    document.addEventListener("keydown", function (e) {
+      if ((e.key === "Delete" || e.key === "Backspace") && document.activeElement !== words) removeSelected();
+    });
+    document.getElementById("clear").addEventListener("click", function () {
+      if (items.length && !confirm("Start over with an empty panel?")) return;
+      items = [];
+      selected = null;
+      showTools();
+      draw();
+    });
+
+    // Save the comic as a picture
+    document.getElementById("save").addEventListener("click", function () {
+      draw(true);   // draw it without the dashed outline
+      const link = document.createElement("a");
+      link.download = "my-hdboc-comic.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+      draw();
+    });
+
+    // The Bigger/Smaller/Flip/Delete buttons only work when something is picked
+    function showTools() {
+      ["bigger", "smaller", "flip", "remove"].forEach(function (id) {
+        document.getElementById(id).disabled = !selected;
+      });
+    }
+
+    // Start with a little example so it's not empty
+    items = [
+      { type: "char", id: "barry", x: 230, y: H - 30 - 130, scale: 1, flip: false },
+      { type: "char", id: "lou", x: 520, y: H - 30 - 110, scale: 1, flip: true },
+      { type: "bubble", text: "Did you see a mosquito?", x: 300, y: 80, scale: 1, flip: false }
+    ];
+    showTools();
+    draw();
+  </script>
+
+</body>
+</html>
