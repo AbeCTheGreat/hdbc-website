@@ -159,3 +159,37 @@ document.addEventListener("DOMContentLoaded", function () {
     if (taps >= 5) { taps = 0; secretFlock(); }
   });
 });
+
+// ===== NEW YEAR COUNTDOWN =====
+// From Dec 26 to Dec 31: a countdown bar to the new year on every page.
+// From Jan 1 to Jan 3: "Happy New Year!"
+//   "auto" = only those days,   "on" = always,   "off" = never
+const NEW_YEAR_BAR = "auto";
+
+document.addEventListener("DOMContentLoaded", function () {
+  const now = new Date();
+  const month = now.getMonth(), day = now.getDate();
+  const counting = month === 11 && day >= 26;
+  const happy = month === 0 && day <= 3;
+  if (NEW_YEAR_BAR === "off" || (NEW_YEAR_BAR === "auto" && !counting && !happy)) return;
+  const header = document.querySelector("header");
+  if (!header) return;
+
+  const bar = document.createElement("div");
+  bar.className = "new-year-bar";
+  header.after(bar);
+
+  function tick() {
+    const t = new Date();
+    if (t.getMonth() === 0 && t.getDate() <= 3) {
+      bar.textContent = "🎆 Happy New Year " + t.getFullYear() + "! 🎆";
+      return;
+    }
+    const next = new Date(t.getFullYear() + 1, 0, 1);   // midnight on January 1
+    const s = Math.max(0, Math.floor((next - t) / 1000));
+    const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60, sec = s % 60;
+    bar.textContent = "🎆 " + (d ? d + (d === 1 ? " day, " : " days, ") : "") + h + " hr, " + m + " min, " + sec + " sec until " + next.getFullYear() + "! 🎆";
+  }
+  tick();
+  setInterval(tick, 1000);
+});

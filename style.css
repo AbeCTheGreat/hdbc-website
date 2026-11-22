@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 30 badges = 10 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 33 badges = 11 neat rows of 3 */
   gap: 10px;
 }
 .badge {
@@ -1095,7 +1095,7 @@ a.card:hover {
 }
 .shop-items {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));   /* 10 things = 2 rows of 5 */
+  grid-template-columns: repeat(5, minmax(0, 1fr));   /* 5 in a row */
   gap: 10px;
 }
 @media (max-width: 520px) {
@@ -2126,4 +2126,72 @@ tr.sold-out td {
   15%  { transform: translateX(-50%) scale(1); }
   85%  { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* ===== UPGRADES (in the Coin Shop) ===== */
+.upgrades-title {
+  margin: 18px 0 8px;
+  text-align: center;
+}
+.shop-items.upgrades {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 520px) {
+  .shop-items.upgrades { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.shop-item small {
+  font-size: 12px;
+  color: var(--gray);
+}
+.upgrade-level {
+  font-size: 18px;
+  letter-spacing: 3px;
+  color: #f2a900;
+}
+
+/* ===== NEW YEAR COUNTDOWN BAR (site.js adds it) ===== */
+.new-year-bar {
+  padding: 8px 16px;
+  text-align: center;
+  font-weight: bold;
+  color: #ffffff;
+  background: linear-gradient(90deg, #1b1550, #4a2a8a, #1b1550);
+  border-bottom: 3px solid #f2c230;
+}
+
+/* ===== STATS PAGE ===== */
+.stats {
+  max-width: 640px;
+  margin: 16px auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 520px) {
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.stat {
+  padding: 12px 8px;
+  text-align: center;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 3px solid var(--line);
+}
+.stat span {
+  display: block;
+  font-size: 26px;
+}
+.stat strong {
+  display: block;
+  font-size: 26px;
+}
+.stat em {
+  font-style: normal;
+  font-size: 14px;
+  color: var(--gray);
+}
+.stats-section {
+  max-width: 640px;
+  margin: 24px auto 8px;
+  text-align: center;
 }

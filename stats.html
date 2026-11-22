@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Stats - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- MY STATS -->
+  <section>
+    <a class="back" href="game.html">&larr; Back to the game</a>
+    <h2>📊 My Stats</h2>
+    <p class="peek-intro">Your all-time numbers from the <a href="game.html">Paper Airplane Game</a>.
+      They're saved in this browser, so they're only on this computer or phone.</p>
+
+    <!-- The script below fills these in -->
+    <div class="stats" id="main-stats"></div>
+    <h3 class="stats-section">👾 Bosses Beaten</h3>
+    <div class="stats" id="boss-stats"></div>
+    <h3 class="stats-section">✈️ Best Score With Each Plane</h3>
+    <div class="stats" id="plane-stats"></div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // How many badges there are in the game (change this when you add more badges)
+    const TOTAL_BADGES = 33;
+
+    const PLANES = {
+      original: "The Original", looper: "Looper", skyfin: "Sky Fin",
+      skyfinplus: "Sky Fin+", turbodart: "Turbo Dart", custom: "My Plane"
+    };
+    const BOSSES = [
+      ["biscuit", "🐶", "Biscuit"],
+      ["snowman", "⛄", "Giant Snowman"],
+      ["cops", "🚓", "Not Smart Cops"],
+      ["bandit", "🦝", "Bandit"],
+      ["antis", "🦗", "PrayingAntis"],
+      ["shark", "🦈", "Shark"]
+    ];
+
+    // ----- You don't need to change anything below this line -----
+
+    function load(key, fallback) {
+      try {
+        const v = JSON.parse(localStorage.getItem(key));
+        return v === null || v === undefined ? fallback : v;
+      } catch (e) { return fallback; }
+    }
+    const stats = load("hdboc-stats", {});
+    const bests = load("hdboc-bests", {});
+    const badges = load("hdboc-badges", {});
+    const missions = load("hdboc-missions", {});
+    const owned = load("hdboc-owned", {});
+    const bosses = stats.bosses || {};
+    const planes = stats.planes || {};
+
+    // Your favorite plane = the one you played the most games with
+    let favorite = "-";
+    let most = 0;
+    Object.keys(planes).forEach(function (id) {
+      if (planes[id] > most) { most = planes[id]; favorite = PLANES[id] || id; }
+    });
+    const secs = stats.seconds || 0;
+    const time = secs >= 3600 ? Math.floor(secs / 3600) + "h " + Math.floor(secs / 60) % 60 + "m"
+               : secs >= 60 ? Math.floor(secs / 60) + " min" : secs + " sec";
+    const storyDone = Math.max(0, Math.min(5, (Number(load("hdboc-story", 1)) || 1) - 1));
+
+    function tiles(boxId, list) {
+      const box = document.getElementById(boxId);
+      list.forEach(function (t) {
+        const tile = document.createElement("div");
+        tile.className = "stat";
+        const icon = document.createElement("span");
+        icon.textContent = t[0];
+        const num = document.createElement("strong");
+        num.textContent = t[1];
+        const label = document.createElement("em");
+        label.textContent = t[2];
+        tile.append(icon, num, label);
+        box.appendChild(tile);
+      });
+    }
+
+    tiles("main-stats", [
+      ["🎮", stats.games || 0, "games played"],
+      ["🏆", Math.max(stats.best || 0, ...Object.values(bests).map(Number).filter(function (n) { return n >= 0; })), "best score ever"],
+      ["⏰", time, "time flying"],
+      ["🪙", stats.coins || 0, "coins grabbed"],
+      ["👛", Number(load("hdboc-wallet", 0)) || 0, "coins in your wallet"],
+      ["🪽", stats.flaps || 0, "flaps"],
+      ["⚡", stats.powerups || 0, "power-ups grabbed"],
+      ["🚀", stats.boosts || 0, "turbo boosts"],
+      ["🌀", stats.portals || 0, "secret portals found"],
+      ["🏅", Object.keys(badges).length + " / " + TOTAL_BADGES, "badges"],
+      ["📋", missions.done || 0, "missions done"],
+      ["📅", Number(load("hdboc-daily-count", 0)) || 0, "daily challenges"],
+      ["📖", storyDone + " / 5", "story levels"],
+      ["👾", Number(load("hdboc-rush-best", 0)) || 0, "Boss Rush best"],
+      ["🛒", Object.keys(owned).length, "shop items"],
+      ["❤️", favorite, "favorite plane"]
+    ]);
+    tiles("boss-stats", BOSSES.map(function (b) {
+      return [b[1], bosses[b[0]] || 0, b[2]];
+    }));
+    tiles("plane-stats", Object.keys(PLANES).map(function (id) {
+      return ["✈️", bests[id] || 0, PLANES[id] + (planes[id] ? " (" + planes[id] + " games)" : "")];
+    }));
+  </script>
+
+</body>
+</html>

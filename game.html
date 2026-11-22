@@ -148,7 +148,7 @@
       🔥 Think you can reach <strong>150</strong>? Someone's waiting for you there...<br>
       🤫 And if you make it to <strong>200</strong>... you'll find a secret.<br>
       👾 <strong>Boss Rush:</strong> no stacks, just bosses, one after another. Each round gets faster!<br>
-      ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, and a giant snowman at 75 points!<br>
+      ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, a giant snowman at 75 points, and a sneaky gift thief at 125!<br>
       🌀 Keep your eyes open after 30 points... a secret portal might show up!<br>
       📖 <strong>Story mode:</strong> 5 levels starring the HDBOC characters. Can you finish the story?<br>
       🐶 Buy a <strong>flying buddy</strong> in the Coin Shop. It flies next to you and grabs coins!</p>
@@ -157,6 +157,7 @@
     <p class="more-games">
       <a class="button" href="throw.html">🎯 Throwing Contest</a>
       <a class="button" href="two-player.html">👥 2-Player Mode</a>
+      <a class="button" href="stats.html">📊 My Stats</a>
     </p>
 
     <!-- COIN SHOP: spend the coins you grab in the game. The script fills it in. -->
@@ -164,6 +165,9 @@
       <h3>🛒 Coin Shop</h3>
       <p>You have <strong id="wallet">0</strong> 🪙 to spend. Every coin you grab in the game gets saved here!</p>
       <div class="shop-items" id="shop-items"></div>
+      <!-- UPGRADES: make your power-ups better. The script fills it in. -->
+      <h4 class="upgrades-title">⬆️ Upgrades</h4>
+      <div class="shop-items upgrades" id="upgrade-items"></div>
     </div>
 
     <!-- TROPHY SHELF: the script below fills this in with your badges -->
@@ -237,6 +241,17 @@
       return (m === 10 && day >= 20) || m === 11 || (m === 0 && day <= 10);
     })();
 
+    // ----- NEW YEAR -----
+    // Fireworks in the sky and a free New Year Hat!
+    // "auto" = only from Dec 26 to Jan 3,   "on" = always,   "off" = never
+    const NEW_YEAR_MODE = "auto";
+    const NEW_YEAR = (function () {
+      if (NEW_YEAR_MODE === "on") return true;
+      if (NEW_YEAR_MODE === "off") return false;
+      const d = new Date(), m = d.getMonth(), day = d.getDate();
+      return (m === 11 && day >= 26) || (m === 0 && day <= 3);
+    })();
+
     // ----- PLANE DESIGNER -----
     // Your own plane! The shape changes how it flies:
     //   nose = how long it is,  span = how wide the wings are,  fins = little fins on the back
@@ -280,6 +295,8 @@
     let shield = false, safeTimer = 0;  // the snowball shield power-up
     let rushRound = 1, rushStep = 0, rushWait = 0;   // Boss Rush mode
     let boostTimer = 0, boostCool = 0, lastFlap = -99, boostsThisGame = 0;   // the Turbo Dart's boost
+    let bandit = null, banditDone = false, banditCaught = false, ammo = [], throws = [];   // Bandit the gift thief (winter)
+    let fireworks = [];   // New Year fireworks
     let water = 0, portal = null, shark = null, sharkDone = false, waterScore = 0;   // the secret underwater world
 
     // ----- SOUND EFFECTS -----
@@ -483,7 +500,10 @@
       { id: "shark",     icon: "🦈", name: "Shark Bait",     how: "Survive the shark" },
       { id: "mission",   icon: "📋", name: "Mission Done",   how: "Finish a mission" },
       { id: "secret",    icon: "🤫", name: "Secret Agent",   how: "Find the website's secret code" },
-      { id: "advent",    icon: "🎁", name: "Door Opener",    how: "Open a door on the Advent Calendar" }
+      { id: "advent",    icon: "🎁", name: "Door Opener",    how: "Open a door on the Advent Calendar" },
+      { id: "bandit",    icon: "🦝", name: "Gift Saver",     how: "Get your coins back from Bandit" },
+      { id: "upgrade",   icon: "⬆️", name: "Upgraded",       how: "Buy an upgrade in the Coin Shop" },
+      { id: "newyear",   icon: "🎆", name: "Happy New Year", how: "Play during New Year's week" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -575,10 +595,67 @@
       { id: "rainbow",   type: "skin", icon: "🌈", name: "Rainbow Skin",  price: 50 },
       { id: "crown",     type: "hat",  icon: "👑", name: "Crown",         price: 75 },
       { id: "star",      type: "hat",  icon: "🌟", name: "Star Hat",      price: 0, gift: true },   // from the Advent Calendar
+      { id: "newyear",   type: "hat",  icon: "🥳", name: "New Year Hat",  price: 0, gift: true },   // free during New Year's week
       { id: "pup",       type: "buddy", icon: "🐶", name: "Puppy Biscuit", price: 40 },
       { id: "minicop",   type: "buddy", icon: "🚓", name: "Mini Cop Car",  price: 50 },
       { id: "minibug",   type: "buddy", icon: "🦗", name: "Mini Antis",    price: 60 }
     ];
+
+    // ----- UPGRADES -----
+    // Each upgrade has 3 levels. "prices" = how much each level costs.
+    const UPGRADES = [
+      { id: "magnet", icon: "🧲", name: "Super Magnet", about: "Pulls coins from farther away", prices: [20, 40, 70] },
+      { id: "time",   icon: "⏱️", name: "Long Power-ups", about: "Magnet and slow-mo last 2 sec longer", prices: [20, 40, 70] },
+      { id: "turbo",  icon: "🚀", name: "Turbo Tank",   about: "Turbo Dart boosts last 1 sec longer", prices: [25, 50, 80] },
+      { id: "luck",   icon: "🍀", name: "Lucky Charm",  about: "Power-ups show up more often", prices: [30, 60, 90] }
+    ];
+    let upgrades = {};
+    try { upgrades = JSON.parse(localStorage.getItem("hdboc-upgrades")) || {}; } catch (e) { upgrades = {}; }
+    function up(id) { return upgrades[id] || 0; }   // what level an upgrade is (0 to 3)
+    function powerTime() { return POWER_TIME + 120 * up("time"); }
+
+    function showUpgrades() {
+      const box = document.getElementById("upgrade-items");
+      box.innerHTML = "";
+      UPGRADES.forEach(function (u) {
+        const level = up(u.id);
+        const card = document.createElement("div");
+        card.className = "shop-item" + (level >= 3 ? " owned" : "");
+        const icon = document.createElement("span");
+        icon.className = "shop-icon";
+        icon.textContent = u.icon;
+        const name = document.createElement("strong");
+        name.textContent = u.name;
+        const about = document.createElement("small");
+        about.textContent = u.about;
+        const dots = document.createElement("span");
+        dots.className = "upgrade-level";
+        dots.textContent = "●".repeat(level) + "○".repeat(3 - level);
+        dots.setAttribute("aria-label", "Level " + level + " of 3");
+        const b = document.createElement("button");
+        b.type = "button";
+        if (level >= 3) {
+          b.textContent = "MAX!";
+          b.disabled = true;
+        } else {
+          b.textContent = "Upgrade: " + u.prices[level] + " 🪙";
+          b.disabled = wallet < u.prices[level];
+        }
+        b.addEventListener("click", function () {
+          if (state === "playing" || state === "paused") return;   // no shopping mid-flight!
+          if (level >= 3 || wallet < u.prices[level]) return;
+          wallet -= u.prices[level];
+          upgrades[u.id] = level + 1;
+          try { localStorage.setItem("hdboc-upgrades", JSON.stringify(upgrades)); } catch (e) {}
+          play("buy");
+          earn("upgrade");
+          saveShop();
+          showShop();
+        });
+        card.append(icon, name, about, dots, b);
+        box.appendChild(card);
+      });
+    }
 
     function saveShop() {
       try {
@@ -640,6 +717,7 @@
         card.append(icon, name, b);
         box.appendChild(card);
       });
+      showUpgrades();
     }
 
     // ----- PLANE SKINS -----
@@ -808,6 +886,32 @@
       }
     }
 
+    // ----- STATS -----
+    // Your all-time numbers. The Stats page (stats.html) shows them.
+    let stats = {};
+    try { stats = JSON.parse(localStorage.getItem("hdboc-stats")) || {}; } catch (e) { stats = {}; }
+    stats.bosses = stats.bosses || {};
+    stats.planes = stats.planes || {};
+    let flapsThisGame = 0, framesThisGame = 0;
+    function saveStats() {
+      try { localStorage.setItem("hdboc-stats", JSON.stringify(stats)); } catch (e) {}
+    }
+    function beat(name) {   // call this when you beat a boss
+      stats.bosses[name] = (stats.bosses[name] || 0) + 1;
+      saveStats();
+    }
+    function addGameToStats() {   // call this when a game ends
+      stats.games = (stats.games || 0) + 1;
+      stats.coins = (stats.coins || 0) + coinsThisGame;
+      stats.flaps = (stats.flaps || 0) + flapsThisGame;
+      stats.seconds = (stats.seconds || 0) + Math.round(framesThisGame / 60);
+      stats.boosts = (stats.boosts || 0) + boostsThisGame;
+      stats.powerups = (stats.powerups || 0) + powerupsThisGame;
+      stats.planes[chosen] = (stats.planes[chosen] || 0) + 1;
+      if (score > (stats.best || 0)) stats.best = score;
+      saveStats();
+    }
+
     // ----- MISSIONS -----
     // You always have 3 missions. Finish one in a game to get its coins,
     // and a new mission takes its place.
@@ -834,6 +938,7 @@
       { id: "plus30",  text: "Score 30 with Sky Fin+",         coins: 10, check: function (g) { return g.plane === "skyfinplus" && g.score >= 30; }, ready: function () { return isUnlocked("skyfinplus"); } },
       { id: "turbo2",  text: "Use 2 turbo boosts in one game", coins: 8,  check: function (g) { return g.boosts >= 2; }, ready: function () { return isUnlocked("turbodart"); } },
       { id: "own10",   text: "Score 10 with a plane you designed", coins: 8, check: function (g) { return g.plane === "custom" && g.score >= 10; } },
+      { id: "bandit",  text: "Get your coins back from Bandit", coins: 15, check: function (g) { return g.bandit; }, ready: function () { return WINTER; } },
       { id: "rush2",   text: "Reach Round 2 in Boss Rush",     coins: 20, mode: "rush", check: function (g) { return g.round >= 2; } }
     ];
     let missions = { active: [], done: 0 };
@@ -887,7 +992,7 @@
         boosts: boostsThisGame, bolts: boltsDodged, plane: chosen, water: water > 0,
         biscuit: mode === "normal" && bossDone, cops: mode === "normal" && copsDone,
         antis: mode === "normal" && antisDone, snow: mode === "normal" && WINTER && snowDone,
-        shark: sharkDone, round: mode === "rush" ? rushRound : 0
+        shark: sharkDone, round: mode === "rush" ? rushRound : 0, bandit: banditCaught
       };
       missions.active.slice().forEach(function (id) {
         const m = findMission(id);
@@ -963,6 +1068,8 @@
       night = 0;
       coinsThisGame = 0;
       pearlsThisGame = 0;
+      flapsThisGame = 0;
+      framesThisGame = 0;
       powerupsThisGame = 0;
       toasts = [];       // "Badge earned!" messages
       boss = null;       // no boss yet
@@ -997,6 +1104,11 @@
       snowman = null;
       snowballs = [];
       snowDone = !WINTER;   // the snowman only comes in winter
+      bandit = null;
+      banditDone = !WINTER;   // Bandit only comes in winter too
+      banditCaught = false;
+      ammo = [];
+      throws = [];
       shield = false;
       safeTimer = 0;
       rushRound = 1;
@@ -1159,13 +1271,14 @@
       plane.vy = P().flap * (water >= 1 ? 0.85 : 1);   // flapping is harder underwater
       // TURBO DART: two taps close together = TURBO BOOST!
       if (P().turbo && frame - lastFlap < 14 && boostCool <= 0) {
-        boostTimer = 180;   // 3 seconds of turbo
+        boostTimer = 180 + 60 * up("turbo");   // 3 seconds of turbo (more with the Turbo Tank upgrade)
         boostCool = 480;    // then 8 seconds to recharge
         boostsThisGame++;
         play("powerup");
         pops.push({ x: plane.x, y: plane.y - 20, t: 50, text: "TURBO!" });
       }
       lastFlap = frame;
+      flapsThisGame++;
       play("flap");
       if (P().loops) { loopTimer = 30; plane.spin = 0; }   // Looper: loop-the-loop!
     }
@@ -1180,6 +1293,7 @@
       });
 
       if (state !== "playing") return;
+      framesThisGame++;
       checkMissions();
 
       // Looper's loop-the-loop: one full spin
@@ -1292,7 +1406,7 @@
 
       // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
       const storyBossTime = mode === "story" && storyPhase !== "goal";
-      if (!boss && !cops && !antis && !snowman && !shark && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
+      if (!boss && !cops && !antis && !snowman && !shark && !bandit && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
       if (spawnClock >= SPAWN_EVERY) {
         spawnClock -= SPAWN_EVERY;
         addStack();
@@ -1301,7 +1415,7 @@
       // Halfway between stacks: usually a coin, but every so often a power-up!
       if (spawnClock >= SPAWN_EVERY / 2 && spawnClock - slow < SPAWN_EVERY / 2) {
         const y = 90 + Math.random() * (GROUND - 180);
-        const powerEvery = mode === "story" && STORY[storyLevel].morePowerups ? 2 : 6;   // Story level 4 has extra power-ups
+        const powerEvery = mode === "story" && STORY[storyLevel].morePowerups ? 2 : 6 - up("luck");   // Story level 4 has extra power-ups (and the Lucky Charm helps)
         if (stackCount % powerEvery === powerEvery - 1 && Math.random() < 0.8) {
           // In winter, a third kind of power-up can show up: the snowball shield!
           const kind = WINTER && Math.random() < 0.34 ? "snowball" : (Math.random() < 0.5 ? "magnet" : "slow");
@@ -1333,7 +1447,8 @@
         if (magnetTimer > 0) {
           const mx = plane.x - c.x, my = plane.y - c.y;
           const dist = Math.sqrt(mx * mx + my * my);
-          if (dist < 220) { c.x += mx / dist * 7; c.y += my / dist * 7; }
+          const reach = 220 * (1 + 0.3 * up("magnet")), pull = 7 + up("magnet");   // Super Magnet upgrade
+          if (dist < reach) { c.x += mx / dist * pull; c.y += my / dist * pull; }
         }
         const dx = c.x - plane.x, dy = c.y - plane.y;
         const bx = c.x - buddyPos.x, by = c.y - buddyPos.y;   // your buddy can grab coins too
@@ -1358,9 +1473,9 @@
           u.got = true;
           play("powerup");
           powerupsThisGame++;
-          if (u.type === "magnet") magnetTimer = POWER_TIME;
+          if (u.type === "magnet") magnetTimer = powerTime();
           else if (u.type === "snowball") shield = true;   // lasts until you hit something
-          else slowTimer = POWER_TIME;
+          else slowTimer = powerTime();
           pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : u.type === "snowball" ? "SHIELD!" : "SLOW-MO!" });
         }
       });
@@ -1419,7 +1534,7 @@
         }
       }
 
-      if (!boss && !bossDone && !shark && score >= 50) startBiscuit();
+      if (!boss && !bossDone && !shark && !bandit && score >= 50) startBiscuit();
       if (boss) {
         // Slide in from the right, then bob up and down
         const homeX = 320;
@@ -1442,6 +1557,7 @@
         if (!boss.leaving && boss.barksLeft === 0 && barks.length === 0) {
           boss.leaving = true;
           bossDone = true;
+          beat("biscuit");
           score += 5;
           toasts.push({ text: "🐶 Biscuit ran away! +5", t: 150 });
           earn("boss");
@@ -1460,7 +1576,7 @@
       // ----- BOSS 2: the Not Smart Cops (Barry and Lou) -----
       // At 100 points they drive up in a flying police car and throw donuts.
       // Dodge 12 donuts to win!
-      if (!cops && !copsDone && !boss && !snowman && !shark && score >= 100) startCops();
+      if (!cops && !copsDone && !boss && !snowman && !shark && !bandit && score >= 100) startCops();
       if (cops) {
         const copsHome = 300;
         if (cops.leaving) cops.x += 3.5;
@@ -1487,6 +1603,7 @@
         if (!cops.leaving && cops.donutsLeft === 0 && donuts.length === 0) {
           cops.leaving = true;
           copsDone = true;
+          beat("cops");
           score += 10;
           toasts.push({ text: "🚓 The cops gave up! +10", t: 150 });
           earn("donut");
@@ -1507,7 +1624,7 @@
       // ----- BOSS 3: PRAYINGANTIS -----
       // At 150 points, the hero shows up. He thinks your plane is a bug,
       // so he shoots fire at it! Dodge 12 fire shots to win.
-      if (!antis && !antisDone && !boss && !cops && !snowman && !shark && score >= 150) startAntis();
+      if (!antis && !antisDone && !boss && !cops && !snowman && !shark && !bandit && score >= 150) startAntis();
       if (antis) {
         const antisHome = 310;
         if (antis.leaving) { antis.x += 2.5; antis.y -= 3; }   // he flies up and away
@@ -1537,6 +1654,7 @@
         if (!antis.leaving && antis.shotsLeft === 0 && fireballs.length === 0) {
           antis.leaving = true;
           antisDone = true;
+          beat("antis");
           score += 15;
           toasts.push({ text: "🦗 \"Oh, it's a PLANE!\" +15", t: 150 });
           earn("antis");
@@ -1553,7 +1671,7 @@
 
       // ----- WINTER BOSS: THE GIANT SNOWMAN -----
       // At 75 points (only in winter), a giant snowman throws snowballs. Dodge 10!
-      if (!snowman && !snowDone && !boss && !cops && !antis && !shark && score >= 75) startSnowman();
+      if (!snowman && !snowDone && !boss && !cops && !antis && !shark && !bandit && score >= 75) startSnowman();
       if (snowman) {
         const snowHome = 310;
         if (snowman.leaving) snowman.x += 3;
@@ -1583,6 +1701,7 @@
         if (!snowman.leaving && snowman.ballsLeft === 0 && snowballs.length === 0) {
           snowman.leaving = true;
           snowDone = true;
+          beat("snowman");
           score += 8;
           toasts.push({ text: "⛄ The snowman melted! +8", t: 150 });
           earn("snowman");
@@ -1597,6 +1716,112 @@
         if (!b.passed && (b.x < plane.x - 30 || b.y > GROUND)) { b.passed = true; score += 1; checkUnlock(); }
       });
       snowballs = snowballs.filter(function (b) { return b.x > -40 && b.y < GROUND + 30; });
+
+      // ----- WINTER BOSS #2: BANDIT THE GIFT THIEF -----
+      // At 125 points (only in winter), Bandit the raccoon swoops at you to STEAL your coins!
+      // He can't make you crash. Grab the ❄️ snowballs floating by and you'll throw them at him.
+      // Hit him 5 times and he drops his sack: you get your coins back, plus a bonus!
+      if (mode === "normal" && !bandit && !banditDone && !boss && !cops && !antis && !snowman && !shark && score >= 125) startBandit();
+      if (bandit) {
+        const home = 300;   // where he hovers
+        if (bandit.leaving) {
+          bandit.x += 4;
+          bandit.y -= 1.5;
+        } else if (bandit.phase === "hover") {
+          if (bandit.x > home) bandit.x -= 2.5;
+          bandit.y += (H / 2 - 40 + Math.sin(frame / 40) * 120 - bandit.y) * 0.05;
+          bandit.t -= slow;
+          if (bandit.t <= 0 && bandit.x <= home + 3) {
+            if (bandit.swoopsLeft > 0) { bandit.phase = "aim"; bandit.t = 50; play("bark"); }
+            else {
+              // Out of swoops: he gets away with your coins!
+              bandit.leaving = true;
+              banditDone = true;
+              toasts.push({ text: bandit.stolen ? "🦝 Bandit got away with " + bandit.stolen + " coins!" : "🦝 Bandit gave up! He got nothing!", t: 150 });
+            }
+          }
+        } else if (bandit.phase === "aim") {
+          bandit.t -= slow;
+          bandit.y += (plane.y - bandit.y) * 0.1;   // he looks at you...
+          if (bandit.t <= 0) { bandit.phase = "swoop"; play("toss"); }
+        } else if (bandit.phase === "swoop") {
+          bandit.x -= 7.5 * slow;   // ...then SWOOPS!
+          if (!bandit.grabbed) {
+            const bdx = plane.x - bandit.x, bdy = plane.y - bandit.y;
+            if (bdx * bdx / (45 * 45) + bdy * bdy / (35 * 35) < 1) {
+              bandit.grabbed = true;
+              const take = Math.min(3, wallet);
+              wallet -= take;
+              bandit.stolen += take;
+              try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
+              play("splat");
+              pops.push({ x: plane.x, y: plane.y - 20, t: 60, text: take ? "-" + take + " 🪙 STOLEN!" : "HEY!" });
+            }
+          }
+          if (bandit.x < -90) {
+            bandit.phase = "back";
+            bandit.x = W + 90;
+            bandit.grabbed = false;
+            bandit.swoopsLeft--;
+          }
+        } else if (bandit.phase === "back") {
+          bandit.x -= 4;
+          bandit.y += (H / 2 - 40 - bandit.y) * 0.05;
+          if (bandit.x <= home) { bandit.phase = "hover"; bandit.t = 110; }
+        }
+        // Snowballs to throw keep floating in
+        if (!bandit.leaving) {
+          bandit.ammoClock += slow;
+          if (bandit.ammoClock >= 120) {   // a new snowball every 2 seconds
+            bandit.ammoClock = 0;
+            ammo.push({ x: W, y: 80 + Math.random() * (GROUND - 160) });
+          }
+        }
+        if (bandit.leaving && (bandit.x > W + 150 || bandit.y < -150)) bandit = null;
+      }
+      ammo.forEach(function (a) {
+        a.x -= speed;
+        const dx = a.x - plane.x, dy = a.y - plane.y;
+        if (!a.got && dx * dx + dy * dy < 28 * 28) {
+          a.got = true;
+          throws.push({ x: plane.x + 10, y: plane.y });   // THROW!
+          play("toss");
+        }
+      });
+      ammo = ammo.filter(function (a) { return !a.got && a.x > -20; });
+      throws.forEach(function (t) {
+        if (bandit && !bandit.leaving) {
+          // The snowball flies right at Bandit
+          const dx = bandit.x - t.x, dy = bandit.y - t.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          t.x += dx / dist * 10;
+          t.y += dy / dist * 10;
+          if (dist < 36) {
+            t.hit = true;
+            bandit.hits++;
+            bandit.ouch = 20;
+            play("splat");
+            pops.push({ x: bandit.x, y: bandit.y - 40, t: 40, text: "SPLAT!" });
+            if (bandit.hits >= 5) {
+              bandit.leaving = true;
+              banditDone = true;
+              banditCaught = true;
+              beat("bandit");
+              const back = bandit.stolen + 10;
+              wallet += back;
+              try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
+              score += 10;
+              toasts.push({ text: "🦝 Bandit dropped the sack! +10", t: 150 });
+              toasts.push({ text: "🪙 +" + back + " coins back!", t: 150 });
+              earn("bandit");
+              checkUnlock();
+            }
+          }
+        } else {
+          t.x += 10;
+        }
+      });
+      throws = throws.filter(function (t) { return !t.hit && t.x < W + 30 && t.x > -30; });
 
       if (safeTimer > 0) safeTimer--;
       if (boostTimer > 0) boostTimer--;
@@ -1617,6 +1842,8 @@
           toasts.push({ text: "🌊 SECRET WORLD: UNDERWATER!", t: 180 });
           toasts.push({ text: "Pearls, coral... and something BIG.", t: 180 });
           earn("diver");
+          stats.portals = (stats.portals || 0) + 1;
+          saveStats();
         } else if (portal.x < -40) {
           portal = null;
         }
@@ -1625,7 +1852,7 @@
 
       // ----- THE SHARK (15 points after you go underwater) -----
       // A warning shows where it will charge from. Then it zooms across! Dodge 3 charges.
-      if (water >= 1 && !shark && !sharkDone && !boss && !cops && !antis && !snowman && score >= waterScore + 15) {
+      if (water >= 1 && !shark && !sharkDone && !boss && !cops && !antis && !snowman && !bandit && score >= waterScore + 15) {
         shark = { charges: 3, phase: "warn", t: 90, x: W + 100, y: plane.y };
         play("boss");
         toasts.push({ text: "🦈 SHARK! Watch for the warning!", t: 150 });
@@ -1648,6 +1875,7 @@
             } else {
               shark = null;
               sharkDone = true;
+              beat("shark");
               score += 10;
               toasts.push({ text: "🦈 The shark gave up! +10", t: 150 });
               earn("shark");
@@ -1740,6 +1968,13 @@
       bolt = null;
       play("fire");
       toasts.push({ text: "🦗 PRAYINGANTIS THINKS YOU'RE A BUG!", t: 150 });
+    }
+    function startBandit() {
+      bandit = { x: W + 100, y: H / 2 - 40, phase: "hover", t: 120, swoopsLeft: 6, hits: 0, stolen: 0,
+                 grabbed: false, ammoClock: 40, leaving: false, ouch: 0 };
+      play("jingle");
+      toasts.push({ text: "🦝 BANDIT THE GIFT THIEF!", t: 150 });
+      toasts.push({ text: "Grab ❄️ snowballs to throw at him!", t: 170 });
     }
     function startSnowman() {
       snowman = { x: W + 130, y: H / 2, ballsLeft: 10, timer: 100, leaving: false, throws: 0, arm: 0 };
@@ -2038,6 +2273,7 @@
 
     function crash() {
       state = "over";
+      addGameToStats();
       offerLeaderboard();
       play("crash");
       saveGhost();
@@ -2097,6 +2333,7 @@
         ctx.fill();
         ctx.globalAlpha = 1;
       }
+      if (NEW_YEAR && space === 0 && water === 0) drawFireworks();
       if (state === "playing" && slowTimer > 0) {
         ctx.fillStyle = "rgba(80, 60, 160, 0.18)";   // purple-ish tint during slow-mo
         ctx.fillRect(0, 0, W, H);
@@ -2117,6 +2354,33 @@
       ctx.fillRect(0, GROUND, W, 4);
       if (space > 0) drawSpace();
       if (water > 0) drawWater();
+    }
+
+    // NEW YEAR FIREWORKS: a new one bursts every so often
+    function drawFireworks() {
+      if (state !== "paused" && Math.random() < 0.03) {
+        const colors = ["#ff5a5a", "#f2c230", "#5ad1ff", "#7dff8a", "#ff8af0", "#ffffff"];
+        const c = colors[Math.floor(Math.random() * colors.length)];
+        const fx = 40 + Math.random() * (W - 80), fy = 50 + Math.random() * 170;
+        for (let i = 0; i < 26; i++) {
+          const a = i / 26 * Math.PI * 2, sp = 1.5 + Math.random() * 1.5;
+          fireworks.push({ x: fx, y: fy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 70, color: c });
+        }
+        if (state === "playing") play("toss");
+      }
+      ctx.save();
+      fireworks.forEach(function (p) {
+        if (state !== "paused") {
+          p.x += p.vx; p.y += p.vy;
+          p.vx *= 0.97; p.vy = p.vy * 0.97 + 0.03;   // they slow down and drift down
+          p.life--;
+        }
+        ctx.globalAlpha = Math.max(0, p.life / 70);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+      });
+      ctx.restore();
+      fireworks = fireworks.filter(function (p) { return p.life > 0; });
     }
 
     // UNDERWATER: blue water, light rays, bubbles, seaweed, and a sandy floor
@@ -2469,6 +2733,19 @@
         if (frame % 40 < 20) {   // it twinkles!
           ctx.fillStyle = "#ffffff";
           ctx.beginPath(); ctx.arc(3, -12, 1.3, 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (hat === "newyear") {
+        // a shiny gold party hat with black stripes and a sparkly pom-pom
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(0, -16); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-3.5, -5); ctx.lineTo(3.5, -5); ctx.moveTo(-2, -10); ctx.lineTo(2, -10); ctx.stroke();
+        const sparks = ["#ff5a5a", "#5ad1ff", "#7dff8a", "#ff8af0"];
+        for (let i = 0; i < 4; i++) {
+          const a = frame / 8 + i * Math.PI / 2;
+          ctx.fillStyle = sparks[i];
+          ctx.fillRect(Math.cos(a) * 4 - 1, -17 + Math.sin(a) * 4 - 1, 2.5, 2.5);
         }
       } else if (hat === "crown") {
         ctx.fillStyle = "#f2c230";
@@ -2909,6 +3186,96 @@
       if (!snowman.leaving) comicText("Snowballs left: " + snowman.ballsLeft, x - 25, y + 140, 18, "#bfe6ff");
     }
 
+    // BANDIT THE GIFT THIEF: a raccoon with a mask, a striped tail, and a sack of stolen coins
+    function drawBandit() {
+      if (!bandit) return;
+      const x = bandit.x, y = bandit.y;
+      if (bandit.ouch > 0) bandit.ouch--;
+      // Warning line before he swoops
+      if (bandit.phase === "aim") {
+        ctx.save();
+        ctx.globalAlpha = 0.4 + 0.4 * Math.sin(frame / 3);
+        ctx.strokeStyle = "#ff4040";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([14, 10]);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(x - 50, y); ctx.stroke();
+        ctx.restore();
+      }
+      ctx.save();
+      ctx.translate(x, y);
+      if (bandit.ouch > 0) ctx.rotate(Math.sin(bandit.ouch) * 0.3);   // wobbles when he gets hit
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#111";
+      // striped tail
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = i % 2 === 0 ? "#8a8a94" : "#2b2b30";
+        ctx.beginPath(); ctx.ellipse(34 + i * 11, 18 - i * 6, 9, 7, -0.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+      // body
+      ctx.fillStyle = "#8a8a94";
+      ctx.beginPath(); ctx.ellipse(10, 18, 30, 22, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#d8d8de";
+      ctx.beginPath(); ctx.ellipse(2, 24, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
+      // ears
+      ctx.fillStyle = "#8a8a94";
+      ctx.beginPath(); ctx.moveTo(-24, -26); ctx.lineTo(-18, -46); ctx.lineTo(-8, -30); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(4, -30); ctx.lineTo(14, -46); ctx.lineTo(18, -24); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // head
+      ctx.beginPath(); ctx.arc(-6, -14, 24, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // the bandit mask
+      ctx.fillStyle = "#1b1b1f";
+      ctx.beginPath(); ctx.ellipse(-8, -16, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
+      // sneaky eyes (they look at you)
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(-18, -16, 4.5, 0, Math.PI * 2); ctx.arc(0, -16, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(-20, -16, 2.2, 0, Math.PI * 2); ctx.arc(-2, -16, 2.2, 0, Math.PI * 2); ctx.fill();
+      // snout, nose and a sneaky grin
+      ctx.fillStyle = "#d8d8de";
+      ctx.beginPath(); ctx.ellipse(-24, -4, 10, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(-32, -6, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(-24, -3, 5, 0.2, Math.PI - 0.6); ctx.stroke();
+      // a red sack full of stolen coins
+      ctx.lineWidth = 3;
+      ctx.fillStyle = "#c8352a";
+      ctx.beginPath(); ctx.ellipse(-26, 32, 16, 18, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#f2c230";
+      ctx.beginPath(); ctx.arc(-26, 14, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // little propeller on his head (that's how he flies!)
+      ctx.strokeStyle = "#111";
+      ctx.beginPath(); ctx.moveTo(-6, -38); ctx.lineTo(-6, -48); ctx.stroke();
+      const w = 16 * Math.cos(frame / 2);
+      ctx.fillStyle = "#2f8a46"; ctx.fillRect(-6, -51, w, 4);
+      ctx.fillStyle = "#c8352a"; ctx.fillRect(-6, -51, -w, 4);
+      ctx.restore();
+      if (!bandit.leaving) comicText("Hits: " + bandit.hits + "/5   Stolen: " + bandit.stolen + " 🪙", Math.min(Math.max(x, 110), W - 110), y + 80, 17, "#ffd6a0");
+    }
+    // Snowballs you can grab (they float by) and the ones you throw
+    function drawAmmo() {
+      ammo.forEach(function (a) {
+        const bob = Math.sin(frame / 10 + a.y) * 3;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y + bob, 11, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#3a8ad0";
+        ctx.stroke();
+        comicText("❄", a.x, a.y + bob + 5, 12, "#3a8ad0");
+      });
+      throws.forEach(function (t) {
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#5a7aa0";
+        ctx.stroke();
+      });
+    }
+
     function drawSnowballs() {
       snowballs.forEach(function (b) {
         ctx.beginPath();
@@ -3045,7 +3412,7 @@
       drawBackground();
       drawStacks();
       const live = state === "playing" || state === "paused";
-      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawPortal(); drawShark(); drawGhost(); }
+      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawBandit(); drawAmmo(); drawPortal(); drawShark(); drawGhost(); }
       if (state !== "start") drawPlane();
       if (live) drawShield();
       if (live) drawBuddy(buddyPos.x, buddyPos.y, 1);
@@ -3148,6 +3515,15 @@
     fillMissions();
     showMissions();
     showShop();
+    // NEW YEAR'S WEEK: a free hat and a badge!
+    if (NEW_YEAR) {
+      if (!owned.newyear) {
+        owned.newyear = true;
+        saveShop();
+        showShop();
+      }
+      earn("newyear");
+    }
     // Badges you earn on other pages of the website
     try {
       if (localStorage.getItem("hdboc-secret") === "found") earn("secret");
