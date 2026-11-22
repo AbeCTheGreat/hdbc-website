@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gift Tags - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR (hidden when you print) -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- GIFT TAGS: print, cut out, and tie onto your gifts! -->
+  <section class="punch-section">
+    <div class="no-print">
+      <h2>🎁 Free Holiday Gift Tags</h2>
+      <p class="peek-intro">Giving an HDBOC comic or paper airplane as a gift? Print these tags,
+        cut them out, punch a hole at the top, and tie them on with string or ribbon!</p>
+      <p class="quiz-teaser"><button type="button" class="button print-button" onclick="window.print()">🖨️ Print the gift tags</button></p>
+    </div>
+
+    <!-- The script below fills in 8 tags -->
+    <div class="tag-sheet" id="sheet"></div>
+  </section>
+
+  <!-- BOTTOM BAR (hidden when you print) -->
+  <footer>
+    <p class="footer-links"><a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // Each tag gets different little pictures in the corner
+    const ICONS = ["🎄🎁", "❄️✈️", "⛄📚", "🎁✈️", "🎄❄️", "⭐📚", "🔔🎁", "❄️⛄"];
+    const sheet = document.getElementById("sheet");
+    ICONS.forEach(function (icons) {
+      const tag = document.createElement("div");
+      tag.className = "gift-tag";
+      tag.innerHTML =
+        '<span class="tag-hole"></span>' +
+        '<div class="tag-top"><img src="logo.png" alt="HDBOC"><span class="tag-icons"></span></div>' +
+        '<div class="tag-line">To: <span></span></div>' +
+        '<div class="tag-line">From: <span></span></div>' +
+        '<div class="tag-made">Happy Holidays! Made by hand by HDBOC Paper Products · hdbcpaper.com</div>';
+      tag.querySelector(".tag-icons").textContent = icons;
+      sheet.appendChild(tag);
+    });
+  </script>
+
+</body>
+</html>

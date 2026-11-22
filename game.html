@@ -52,7 +52,24 @@
         <strong>Sky Fin+</strong>
         <span>⚡ Aerodynamic: tiny and super fast. 2 points per stack!</span>
       </button>
+      <button type="button" class="plane-choice" data-plane="custom" role="radio">
+        <strong id="custom-name">✏️ My Plane</strong>
+        <span>Your own design! Change it in the Plane Designer.</span>
+      </button>
     </div>
+
+    <!-- PLANE DESIGNER: the script below adds the buttons -->
+    <details class="designer">
+      <summary>✏️ Plane Designer: make your own plane!</summary>
+      <div class="designer-body">
+        <label class="designer-row"><strong>Name:</strong> <input type="text" id="design-name" maxlength="14"></label>
+        <div class="designer-row"><strong>Shape:</strong> <div class="designer-options" id="design-shape"></div></div>
+        <div class="designer-row"><strong>Wing color:</strong> <div class="designer-options" id="design-wing"></div></div>
+        <div class="designer-row"><strong>Fold color:</strong> <div class="designer-options" id="design-fold"></div></div>
+        <div class="designer-row"><strong>Sticker:</strong> <div class="designer-options" id="design-sticker"></div></div>
+        <p class="hint">Your plane shows up on the game screen below. (Pick the <strong>Classic</strong> skin to see your own colors.)</p>
+      </div>
+    </details>
 
     <!-- SKIN PICKER: the script below fills this in. Earn badges to unlock skins! -->
     <h3 class="picker-title">🎨 Skins</h3>
@@ -63,6 +80,12 @@
       <strong>📅 Today's Challenge:</strong>
       <span id="challenge-text"></span>
       <em id="challenge-status"></em>
+    </div>
+
+    <!-- GAME MODE: normal, or Boss Rush -->
+    <div class="mode-picker" role="radiogroup" aria-label="Game mode">
+      <button type="button" class="mode-choice" data-mode="normal" role="radio">✈️ Normal</button>
+      <button type="button" class="mode-choice" data-mode="rush" role="radio">👾 Boss Rush</button>
     </div>
 
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
@@ -83,7 +106,9 @@
       🌦️ Watch the weather: rain, wind, and thunderstorms at night!<br>
       👻 Your <strong>ghost</strong> replays your best run. Race it!<br>
       🔥 Think you can reach <strong>150</strong>? Someone's waiting for you there...<br>
-      🤫 And if you make it to <strong>200</strong>... you'll find a secret.</p>
+      🤫 And if you make it to <strong>200</strong>... you'll find a secret.<br>
+      👾 <strong>Boss Rush:</strong> no stacks, just bosses, one after another. Each round gets faster!<br>
+      ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, and a giant snowman at 75 points!</p>
 
     <!-- MORE GAMES -->
     <p class="more-games">
@@ -155,6 +180,39 @@
                     wing: "#ffd0c9", fold: "#d33a2c" }
     };
 
+    // ----- WINTER -----
+    // "auto" = only from Nov 20 to Jan 10,   "on" = always,   "off" = never
+    const WINTER_MODE = "auto";
+    const WINTER = (function () {
+      if (WINTER_MODE === "on") return true;
+      if (WINTER_MODE === "off") return false;
+      const d = new Date(), m = d.getMonth(), day = d.getDate();   // m: 0 = January, 10 = November, 11 = December
+      return (m === 10 && day >= 20) || m === 11 || (m === 0 && day <= 10);
+    })();
+
+    // ----- PLANE DESIGNER -----
+    // Your own plane! The shape changes how it flies:
+    //   nose = how long it is,  span = how wide the wings are,  fins = little fins on the back
+    const SHAPES = {
+      dart:   { name: "Dart",   about: "Normal",          gravity: 0.32, flap: -6.2, speed: 2.4, size: 1.0,  nose: 22, span: 12, fins: false },
+      glider: { name: "Glider", about: "Floaty and slow", gravity: 0.27, flap: -5.8, speed: 2.2, size: 1.1,  nose: 20, span: 16, fins: false },
+      arrow:  { name: "Arrow",  about: "Fast and small",  gravity: 0.33, flap: -6.3, speed: 2.8, size: 0.85, nose: 30, span: 10, fins: true }
+    };
+    let design = { name: "My Plane", shape: "dart", wing: "#ffffff", fold: "#2f55a0", sticker: "" };
+    try {
+      const saved = JSON.parse(localStorage.getItem("hdboc-design"));
+      if (saved && SHAPES[saved.shape]) design = saved;
+    } catch (e) {}
+    function buildCustom() {
+      const sh = SHAPES[design.shape];
+      PLANES.custom = {
+        name: design.name || "My Plane", gravity: sh.gravity, flap: sh.flap, speed: sh.speed, size: sh.size,
+        points: 1, loops: false, wing: design.wing, fold: design.fold,
+        nose: sh.nose, span: sh.span, fins: sh.fins, sticker: design.sticker
+      };
+    }
+    buildCustom();
+
     // Comic book colors for the stacks
     const BOOK_COLORS = ["#d33a2c", "#2f55a0", "#f2c230", "#8be04a", "#f2862a"];
 
@@ -171,6 +229,9 @@
     let weather, weatherTimer, windDir, rainDrops, bolt, boltsDodged, flash;   // the weather
     let ghostRun, ghostData, ghostPassed;   // the ghost plane
     let space = 0;   // the secret level: 0 = not yet, 1 = all the way in OUTER SPACE
+    let snowman, snowballs, snowDone;   // the winter boss (at 75 points)
+    let shield = false, safeTimer = 0;  // the snowball shield power-up
+    let rushRound = 1, rushStep = 0, rushWait = 0;   // Boss Rush mode
 
     // ----- SOUND EFFECTS -----
     // We don't use sound files. The computer makes the sounds itself with the
@@ -227,7 +288,7 @@
     // Plays notes one after another (for little tunes)
     function tune(type, notes, gap, volume) {
       notes.forEach(function (f, i) {
-        setTimeout(function () { beep(type, f, f, gap / 1000 + 0.04, volume); }, i * gap);
+        if (f) setTimeout(function () { beep(type, f, f, gap / 1000 + 0.04, volume); }, i * gap);   // 0 = a rest (no sound)
       });
     }
 
@@ -248,7 +309,9 @@
       thunder: function () { noise(1.2, 0.6, 250); },
       zap:     function () { beep("square", 1200, 200, 0.3, 0.15); noise(0.3, 0.3, 3000); },
       wind:    function () { noise(1.0, 0.25, 600); },
-      buy:     function () { tune("square", [784, 988, 1175, 1568], 70, 0.1); }
+      buy:     function () { tune("square", [784, 988, 1175, 1568], 70, 0.1); },
+      splat:   function () { noise(0.3, 0.4, 1500); beep("sine", 500, 150, 0.25, 0.15); },
+      jingle:  function () { tune("triangle", [659, 659, 659, 0, 659, 659, 659, 0, 659, 784, 523, 587, 659], 110, 0.12); }
     };
     function play(name) { if (soundOn && audio) SOUNDS[name](); }
 
@@ -280,7 +343,7 @@
     setInterval(function () {
       if (!musicOn || !audio || state !== "playing") return;
       const tune = night > 0.5 ? NIGHT_MELODY : MELODY;   // a spookier tune at night
-      const fast = boss || cops || antis ? 2 : 1;          // the tune goes double-speed during a boss!
+      const fast = boss || cops || antis || snowman ? 2 : 1;   // the tune goes double-speed during a boss!
       for (let i = 0; i < fast; i++) {
         musicNote("triangle", tune[musicStep % 16], 0.14, 0.05);
         musicNote("square", BASS[musicStep % 16], 0.3, 0.025);
@@ -320,7 +383,10 @@
       { id: "storm",     icon: "⛈️", name: "Storm Chaser",   how: "Dodge 3 lightning bolts in one game" },
       { id: "space",     icon: "🚀", name: "Space Cadet",    how: "Find the secret level" },
       { id: "versus",    icon: "👥", name: "Head to Head",   how: "Play a 2-player game" },
-      { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Throw 100 feet in the Throwing Contest" }
+      { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Throw 100 feet in the Throwing Contest" },
+      { id: "snowman",   icon: "⛄", name: "Snow Way!",      how: "Survive the giant snowman (winter only)" },
+      { id: "rush",      icon: "👾", name: "Boss Rusher",    how: "Beat every boss in Boss Rush" },
+      { id: "designer",  icon: "✏️", name: "Plane Designer", how: "Fly a plane you designed" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -357,6 +423,7 @@
       if (isUnlocked("skyfinplus")) earn("allplanes");
       if (skin !== "classic" && score >= 1) earn("skin");
       if (boltsDodged >= 3) earn("storm");
+      if (chosen === "custom" && score >= 1) earn("designer");
       checkChallenge();
     }
 
@@ -397,10 +464,12 @@
 
     const SHOP = [
       { id: "party",     type: "hat",  icon: "🥳", name: "Party Hat",     price: 10 },
+      { id: "elf",       type: "hat",  icon: "🧝", name: "Elf Hat",       price: 15 },
       { id: "propeller", type: "hat",  icon: "🌀", name: "Propeller Cap", price: 20 },
       { id: "police",    type: "hat",  icon: "👮", name: "Police Hat",    price: 25 },
       { id: "cowboy",    type: "hat",  icon: "🤠", name: "Cowboy Hat",    price: 30 },
       { id: "ice",       type: "skin", icon: "🧊", name: "Ice Skin",      price: 30 },
+      { id: "santa",     type: "hat",  icon: "🎅", name: "Santa Hat",     price: 35 },
       { id: "tophat",    type: "hat",  icon: "🎩", name: "Top Hat",       price: 40 },
       { id: "rainbow",   type: "skin", icon: "🌈", name: "Rainbow Skin",  price: 50 },
       { id: "crown",     type: "hat",  icon: "👑", name: "Crown",         price: 75 }
@@ -547,6 +616,7 @@
     }
     function saveGhost() {
       // Only save it if this run beat the old ghost
+      if (mode === "rush") return;   // no ghosts in Boss Rush
       const old = ghostData ? ghostData.score : 0;
       if (score > old && score >= 3) {
         try { localStorage.setItem("hdboc-ghost-" + chosen, JSON.stringify({ score: score, ys: ghostRun })); } catch (e) {}
@@ -663,6 +733,7 @@
     // to unlock the next one in this list.
     const ORDER = ["original", "looper", "skyfin", "skyfinplus"];
     function isUnlocked(id) {
+      if (id === "custom") return true;   // your own plane is always ready
       const i = ORDER.indexOf(id);
       return i === 0 || (bests[ORDER[i - 1]] || 0) >= 10;
     }
@@ -706,6 +777,19 @@
       ghostData = loadGhost();
       ghostPassed = false;
       space = 0;
+      snowman = null;
+      snowballs = [];
+      snowDone = !WINTER;   // the snowman only comes in winter
+      shield = false;
+      safeTimer = 0;
+      rushRound = 1;
+      rushStep = 0;
+      rushWait = 100;
+      if (mode === "rush") {
+        // Boss Rush: the bosses come by themselves, not at 50/75/100/150 points
+        bossDone = true; copsDone = true; antisDone = true; snowDone = true;
+        ghostData = null;   // no ghost in Boss Rush
+      }
       score = 0;
       frame = 0;
       speed = P().speed;
@@ -750,6 +834,74 @@
       });
     });
 
+    // ----- PLANE DESIGNER BUTTONS -----
+    const COLORS = [
+      ["#ffffff", "White"], ["#d33a2c", "Red"], ["#f2862a", "Orange"], ["#f2c230", "Yellow"],
+      ["#8be04a", "Lime"], ["#4f9a3a", "Green"], ["#7cc4f2", "Sky blue"], ["#2f55a0", "Blue"],
+      ["#7a4ab8", "Purple"], ["#ff9ecf", "Pink"], ["#b8c0cc", "Silver"], ["#333333", "Black"]
+    ];
+    const STICKERS = ["", "⭐", "⚡", "❤️", "🔥", "💀", "😎", "🐶", "🍩", "❄️"];
+
+    function saveDesign() {
+      try { localStorage.setItem("hdboc-design", JSON.stringify(design)); } catch (e) {}
+      buildCustom();
+      document.getElementById("custom-name").textContent = "✏️ " + PLANES.custom.name;
+      // Switch to your plane so you can see it on the game screen
+      if (state !== "playing" && state !== "paused") {
+        chosen = "custom";
+        try { localStorage.setItem("hdboc-plane", chosen); } catch (e) {}
+        showChosen();
+        reset();
+        state = "start";
+      }
+    }
+
+    // Makes a row of buttons. "key" is which part of the design they change.
+    function designButtons(boxId, key, values, makeLabel) {
+      const box = document.getElementById(boxId);
+      function refresh() {
+        box.querySelectorAll("button").forEach(function (b, i) {
+          b.classList.toggle("on", values[i] === design[key]);
+          b.setAttribute("aria-pressed", values[i] === design[key] ? "true" : "false");
+        });
+      }
+      values.forEach(function (v) {
+        const b = document.createElement("button");
+        b.type = "button";
+        makeLabel(b, v);
+        b.addEventListener("click", function () {
+          if (state === "playing" || state === "paused") return;
+          design[key] = v;
+          refresh();
+          saveDesign();
+        });
+        box.appendChild(b);
+      });
+      refresh();
+    }
+    designButtons("design-shape", "shape", Object.keys(SHAPES), function (b, v) {
+      b.textContent = SHAPES[v].name + " (" + SHAPES[v].about + ")";
+    });
+    const colorValues = COLORS.map(function (c) { return c[0]; });
+    function swatch(b, v) {
+      b.className = "swatch";
+      b.style.background = v;
+      b.setAttribute("aria-label", COLORS.find(function (c) { return c[0] === v; })[1]);
+    }
+    designButtons("design-wing", "wing", colorValues, swatch);
+    designButtons("design-fold", "fold", colorValues, swatch);
+    designButtons("design-sticker", "sticker", STICKERS, function (b, v) {
+      b.textContent = v || "None";
+      b.className = "sticker-choice";
+    });
+    const nameBox = document.getElementById("design-name");
+    nameBox.value = design.name;
+    nameBox.addEventListener("input", function () {
+      design.name = nameBox.value.trim().slice(0, 14) || "My Plane";
+      saveDesign();
+    });
+    document.getElementById("custom-name").textContent = "✏️ " + PLANES.custom.name;
+
     // Makes a new pair of stacks with the gap at a random height
     function addStack() {
       const gapTop = 80 + Math.random() * (GROUND - GAP - 160);
@@ -791,7 +943,7 @@
       }
       if (unlockTimer > 0) unlockTimer--;
       // SECRET LEVEL: at 200 points you fly right up into OUTER SPACE!
-      if (score >= 200 && space === 0) {
+      if (score >= 200 && space === 0 && mode !== "rush") {
         space = 0.001;
         weather = "clear";
         rainDrops = [];
@@ -810,18 +962,21 @@
 
       // ----- WEATHER -----
       // Every so often the weather changes. No wind or lightning during a boss fight!
-      const bossHere = boss || cops || antis;
-      if (score >= 5) weatherTimer--;
+      const bossHere = boss || cops || antis || snowman;
+      if (score >= 5 && mode !== "rush") weatherTimer--;   // no weather in Boss Rush
       if (weatherTimer <= 0) {
         weatherTimer = 500 + Math.random() * 300;
         const r = Math.random();
         if (bossHere || space > 0 || r < 0.4) weather = "clear";
-        else if (r < 0.7) weather = night > 0.5 ? "storm" : "rain";
+        else if (r < 0.7) weather = night > 0.5 ? "storm" : (WINTER ? "snow" : "rain");
         else weather = "wind";
         if (weather === "wind") {
           windDir = Math.random() < 0.5 ? -1 : 1;
           toasts.push({ text: "💨 WIND! Pushing you " + (windDir < 0 ? "UP" : "DOWN") + "!", t: 120 });
           play("wind");
+        } else if (weather === "snow") {
+          toasts.push({ text: "❄️ It's snowing!", t: 120 });
+          play("jingle");
         } else if (weather === "rain") {
           toasts.push({ text: "🌧️ Rain! Your plane gets heavy!", t: 120 });
         } else if (weather === "storm") {
@@ -837,7 +992,11 @@
 
       // Raindrops falling
       if (rainy && rainDrops.length < 90) rainDrops.push({ x: Math.random() * (W + 100), y: -10, s: 7 + Math.random() * 4 });
-      rainDrops.forEach(function (d) { d.y += d.s; d.x -= 2; });
+      if (weather === "snow" && rainDrops.length < 70) rainDrops.push({ x: Math.random() * (W + 60), y: -10, s: 1.2 + Math.random() * 1.5, snow: true });
+      rainDrops.forEach(function (d) {
+        d.y += d.s;
+        d.x -= d.snow ? 1 + Math.sin((frame + d.y) / 25) : 2;   // snowflakes drift side to side
+      });
       rainDrops = rainDrops.filter(function (d) { return d.y < GROUND; });
 
       // LIGHTNING: it aims at the half of the sky you're in. Move to the other half!
@@ -875,7 +1034,7 @@
       if (slowTimer > 0) slowTimer--;
 
       // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
-      if (!boss && !cops && !antis) spawnClock += slow;   // nothing new spawns during a boss fight
+      if (!boss && !cops && !antis && !snowman && mode !== "rush") spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
       if (spawnClock >= SPAWN_EVERY) {
         spawnClock -= SPAWN_EVERY;
         addStack();
@@ -885,7 +1044,9 @@
       if (spawnClock >= SPAWN_EVERY / 2 && spawnClock - slow < SPAWN_EVERY / 2) {
         const y = 90 + Math.random() * (GROUND - 180);
         if (stackCount % 6 === 5 && Math.random() < 0.8) {
-          powerups.push({ x: W, y: y, type: Math.random() < 0.5 ? "magnet" : "slow" });
+          // In winter, a third kind of power-up can show up: the snowball shield!
+          const kind = WINTER && Math.random() < 0.34 ? "snowball" : (Math.random() < 0.5 ? "magnet" : "slow");
+          powerups.push({ x: W, y: y, type: kind });
         } else if (Math.random() < 0.7) {
           coins.push({ x: W, y: y });
         }
@@ -934,19 +1095,38 @@
           play("powerup");
           powerupsThisGame++;
           if (u.type === "magnet") magnetTimer = POWER_TIME;
+          else if (u.type === "snowball") shield = true;   // lasts until you hit something
           else slowTimer = POWER_TIME;
-          pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : "SLOW-MO!" });
+          pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : u.type === "snowball" ? "SHIELD!" : "SLOW-MO!" });
         }
       });
       powerups = powerups.filter(function (u) { return !u.got && u.x > -30; });
 
       // ----- THE BOSS: Biscuit the toxic dog -----
       // At 50 points, Biscuit shows up and barks at you. Dodge 10 barks to win!
-      if (!boss && !bossDone && score >= 50) {
-        boss = { x: W + 120, y: H / 2, barksLeft: 10, timer: 90, leaving: false };
-        play("boss");
-        toasts.push({ text: "👾 BISCUIT IS HERE! Dodge the barks!", t: 150 });
+      // ----- BOSS RUSH: the next boss comes as soon as the last one leaves -----
+      if (mode === "rush" && !boss && !cops && !antis && !snowman) {
+        rushWait--;
+        if (rushWait <= 0) {
+          const list = WINTER ? ["biscuit", "snowman", "cops", "antis"] : ["biscuit", "cops", "antis"];
+          if (rushStep >= list.length) {
+            // You beat every boss! Round 2, 3, 4... gets faster each time
+            rushStep = 0;
+            rushRound++;
+            earn("rush");
+            toasts.push({ text: "👾 ROUND " + rushRound + "! Everything is FASTER!", t: 150 });
+          }
+          const next = list[rushStep];
+          rushStep++;
+          rushWait = 90;
+          if (next === "biscuit") startBiscuit();
+          else if (next === "snowman") startSnowman();
+          else if (next === "cops") startCops();
+          else startAntis();
+        }
       }
+
+      if (!boss && !bossDone && score >= 50) startBiscuit();
       if (boss) {
         // Slide in from the right, then bob up and down
         const homeX = 320;
@@ -958,10 +1138,10 @@
           boss.timer -= slow;
           if (boss.timer <= 0 && boss.barksLeft > 0) {
             boss.barksLeft--;
-            boss.timer = 55 + boss.barksLeft * 3;
+            boss.timer = (55 + boss.barksLeft * 3) / hard();
             // aim at where the plane is right now
             const dy = plane.y - (boss.y + 10);
-            barks.push({ x: boss.x - 60, y: boss.y + 10, vx: -4.2, vy: Math.max(-2.5, Math.min(2.5, dy / 70)) });
+            barks.push({ x: boss.x - 60, y: boss.y + 10, vx: -4.2 * hard(), vy: Math.max(-2.5, Math.min(2.5, dy / 70)) });
             play("bark");
           }
         }
@@ -987,11 +1167,7 @@
       // ----- BOSS 2: the Not Smart Cops (Barry and Lou) -----
       // At 100 points they drive up in a flying police car and throw donuts.
       // Dodge 12 donuts to win!
-      if (!cops && !copsDone && !boss && score >= 100) {
-        cops = { x: W + 140, y: H / 2, donutsLeft: 12, timer: 100, leaving: false, turn: 0 };
-        play("siren");
-        toasts.push({ text: "🚓 NOT SMART COPS! Dodge the donuts!", t: 150 });
-      }
+      if (!cops && !copsDone && !boss && !snowman && score >= 100) startCops();
       if (cops) {
         const copsHome = 300;
         if (cops.leaving) cops.x += 3.5;
@@ -1001,13 +1177,13 @@
           cops.timer -= slow;
           if (cops.timer <= 0 && cops.donutsLeft > 0) {
             cops.donutsLeft--;
-            cops.timer = 45 + cops.donutsLeft * 3;
+            cops.timer = (45 + cops.donutsLeft * 3) / hard();
             cops.turn++;
             // Barry and Lou take turns throwing (Barry sits in front)
             const sx = cops.x + (cops.turn % 2 === 0 ? -40 : 25);
             const sy = cops.y - 40;
             // Aim the donut so it falls toward the plane in an arc
-            const vx = -(3.6 + Math.random() * 0.8);
+            const vx = -(3.6 + Math.random() * 0.8) * hard();
             const g = 0.06;
             const t = (sx - plane.x) / -vx;
             const vy = Math.max(-6, Math.min(4, (plane.y - sy - 0.5 * g * t * t) / t));
@@ -1038,13 +1214,7 @@
       // ----- BOSS 3: PRAYINGANTIS -----
       // At 150 points, the hero shows up. He thinks your plane is a bug,
       // so he shoots fire at it! Dodge 12 fire shots to win.
-      if (!antis && !antisDone && !boss && !cops && score >= 150) {
-        antis = { x: W + 130, y: H / 2, shotsLeft: 12, timer: 100, leaving: false, shots: 0 };
-        weather = "clear";
-        bolt = null;
-        play("fire");
-        toasts.push({ text: "🦗 PRAYINGANTIS THINKS YOU'RE A BUG!", t: 150 });
-      }
+      if (!antis && !antisDone && !boss && !cops && !snowman && score >= 150) startAntis();
       if (antis) {
         const antisHome = 310;
         if (antis.leaving) { antis.x += 2.5; antis.y -= 3; }   // he flies up and away
@@ -1057,11 +1227,11 @@
           if (antis.timer <= 0 && antis.shotsLeft > 0) {
             antis.shotsLeft--;
             antis.shots++;
-            antis.timer = 50 + antis.shotsLeft * 2;
+            antis.timer = (50 + antis.shotsLeft * 2) / hard();
             // Shoot from his mouth, aimed at the plane
             const sx = antis.x - 45, sy = antis.y - 45;
-            const vx = -4.6;
-            const vy = Math.max(-3, Math.min(3, (plane.y - sy) / ((sx - plane.x) / 4.6)));
+            const vx = -4.6 * hard();
+            const vy = Math.max(-3, Math.min(3, (plane.y - sy) / ((sx - plane.x) / -vx)));
             fireballs.push({ x: sx, y: sy, vx: vx, vy: vy });
             // Every 3rd shot is a big 3-way blast!
             if (antis.shots % 3 === 0) {
@@ -1087,6 +1257,55 @@
         if (!f.passed && f.x < plane.x - 30) { f.passed = true; score += 1; checkUnlock(); }
       });
       fireballs = fireballs.filter(function (f) { return f.x > -40 && f.y > -40 && f.y < GROUND + 40; });
+
+      // ----- WINTER BOSS: THE GIANT SNOWMAN -----
+      // At 75 points (only in winter), a giant snowman throws snowballs. Dodge 10!
+      if (!snowman && !snowDone && !boss && !cops && !antis && score >= 75) startSnowman();
+      if (snowman) {
+        const snowHome = 310;
+        if (snowman.leaving) snowman.x += 3;
+        else {
+          if (snowman.x > snowHome) snowman.x -= 2;
+          snowman.y = H / 2 - 30 + Math.sin(frame / 45) * 90;
+        }
+        if (snowman.arm > 0) snowman.arm--;
+        if (!snowman.leaving && snowman.x <= snowHome + 2) {
+          snowman.timer -= slow;
+          if (snowman.timer <= 0 && snowman.ballsLeft > 0) {
+            snowman.ballsLeft--;
+            snowman.throws++;
+            snowman.arm = 20;   // raise his stick arm to throw
+            snowman.timer = (55 + snowman.ballsLeft * 3) / hard();
+            // Every 4th snowball is a GIANT one
+            const big = snowman.throws % 4 === 0;
+            const sx = snowman.x - 60, sy = snowman.y - 30;
+            const vx = -(3.4 + Math.random() * 0.8) * hard();
+            const g = 0.05;
+            const t = (sx - plane.x) / -vx;
+            const vy = Math.max(-6, Math.min(4, (plane.y - sy - 0.5 * g * t * t) / t));
+            snowballs.push({ x: sx, y: sy, vx: vx, vy: vy, g: g, r: big ? 22 : 12 });
+            play("toss");
+          }
+        }
+        if (!snowman.leaving && snowman.ballsLeft === 0 && snowballs.length === 0) {
+          snowman.leaving = true;
+          snowDone = true;
+          score += 8;
+          toasts.push({ text: "⛄ The snowman melted! +8", t: 150 });
+          earn("snowman");
+          checkUnlock();
+        }
+        if (snowman.leaving && snowman.x > W + 150) snowman = null;
+      }
+      snowballs.forEach(function (b) {
+        b.x += b.vx * slow;
+        b.vy += b.g * slow;
+        b.y += b.vy * slow;
+        if (!b.passed && (b.x < plane.x - 30 || b.y > GROUND)) { b.passed = true; score += 1; checkUnlock(); }
+      });
+      snowballs = snowballs.filter(function (b) { return b.x > -40 && b.y < GROUND + 30; });
+
+      if (safeTimer > 0) safeTimer--;
 
       // Remember where you are, for your ghost next time (every other frame)
       if (frame % 2 === 0) ghostRun.push(Math.round(plane.y));
@@ -1125,8 +1344,79 @@
         const dx = f.x - plane.x, dy = f.y - plane.y;
         if (dx * dx + dy * dy < (12 + 10 * P().size) * (12 + 10 * P().size)) hit = true;
       }
-      if (hit) crash();
+      for (const b of snowballs) {
+        const dx = b.x - plane.x, dy = b.y - plane.y;
+        if (dx * dx + dy * dy < (b.r + 10 * P().size) * (b.r + 10 * P().size)) hit = true;
+      }
+      if (hit && safeTimer > 0) {
+        // Just used your shield: you can't crash for a moment
+        if (plane.y > GROUND - 12) { plane.y = GROUND - 12; plane.vy = -5; }
+        if (plane.y < 12) { plane.y = 12; plane.vy = 2; }
+      } else if (hit && shield) {
+        // SPLAT! The snowball shield saves you once
+        shield = false;
+        safeTimer = 70;
+        play("splat");
+        pops.push({ x: plane.x, y: plane.y, t: 50, text: "SPLAT! Saved!" });
+        if (plane.y > GROUND - 12) { plane.y = GROUND - 12; plane.vy = -5; }
+        if (plane.y < 12) { plane.y = 12; plane.vy = 2; }
+      } else if (hit) {
+        crash();
+      }
     }
+
+    // How much faster things get in Boss Rush (round 1 = normal speed)
+    function hard() {
+      return mode === "rush" ? 1 + (rushRound - 1) * 0.25 : 1;
+    }
+
+    function startBiscuit() {
+      boss = { x: W + 120, y: H / 2, barksLeft: 10, timer: 90, leaving: false };
+      play("boss");
+      toasts.push({ text: "👾 BISCUIT IS HERE! Dodge the barks!", t: 150 });
+    }
+    function startCops() {
+      cops = { x: W + 140, y: H / 2, donutsLeft: 12, timer: 100, leaving: false, turn: 0 };
+      play("siren");
+      toasts.push({ text: "🚓 NOT SMART COPS! Dodge the donuts!", t: 150 });
+    }
+    function startAntis() {
+      antis = { x: W + 130, y: H / 2, shotsLeft: 12, timer: 100, leaving: false, shots: 0 };
+      weather = "clear";
+      bolt = null;
+      play("fire");
+      toasts.push({ text: "🦗 PRAYINGANTIS THINKS YOU'RE A BUG!", t: 150 });
+    }
+    function startSnowman() {
+      snowman = { x: W + 130, y: H / 2, ballsLeft: 10, timer: 100, leaving: false, throws: 0, arm: 0 };
+      play("jingle");
+      toasts.push({ text: "⛄ GIANT SNOWMAN! Dodge!", t: 150 });
+    }
+
+    // ----- GAME MODE: Normal or Boss Rush -----
+    let mode = "normal";
+    try { if (localStorage.getItem("hdboc-mode") === "rush") mode = "rush"; } catch (e) {}
+    let rushBest = 0;
+    try { rushBest = Number(localStorage.getItem("hdboc-rush-best")) || 0; } catch (e) {}
+    const modeButtons = document.querySelectorAll(".mode-choice");
+    function showMode() {
+      modeButtons.forEach(function (b) {
+        const on = b.dataset.mode === mode;
+        b.classList.toggle("selected", on);
+        b.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
+    modeButtons.forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (state === "playing" || state === "paused") return;
+        mode = b.dataset.mode;
+        try { localStorage.setItem("hdboc-mode", mode); } catch (e) {}
+        showMode();
+        reset();
+        state = "start";
+      });
+    });
+    showMode();
 
     // ----- PAUSE -----
     const pauseButton = document.getElementById("pause-button");
@@ -1145,6 +1435,7 @@
 
     // Did you just reach 10 points and unlock a new plane?
     function checkUnlock() {
+      if (mode === "rush") return;   // unlock planes in the normal game
       const next = nextLocked();
       if (next && score >= 10) {
         bests[chosen] = Math.max(best(), score);
@@ -1162,7 +1453,13 @@
       saveGhost();
       showShop();
       frame = 0;
-      if (score > best()) {
+      if (mode === "rush") {
+        // Boss Rush has its own record
+        if (score > rushBest) {
+          rushBest = score;
+          try { localStorage.setItem("hdboc-rush-best", String(rushBest)); } catch (e) {}
+        }
+      } else if (score > best()) {
         bests[chosen] = score;
         try { localStorage.setItem("hdboc-bests", JSON.stringify(bests)); } catch (e) {}
       }
@@ -1224,7 +1521,7 @@
         ctx.fill();
       });
 
-      ctx.fillStyle = mix("#4f9a3a", "#1f4a2a", night);
+      ctx.fillStyle = WINTER ? mix("#f4f8ff", "#9fb0d0", night) : mix("#4f9a3a", "#1f4a2a", night);   // snow on the ground in winter!
       ctx.fillRect(0, GROUND, W, H - GROUND);
       ctx.fillStyle = "#111";
       ctx.fillRect(0, GROUND, W, 4);
@@ -1317,7 +1614,8 @@
       ctx.strokeStyle = "#111";
 
       // Sky Fin and Sky Fin+ are longer and pointier
-      const nose = chosen === "skyfin" || chosen === "skyfinplus" ? 28 : 22;
+      const nose = p.nose || (chosen === "skyfin" || chosen === "skyfinplus" ? 28 : 22);
+      const span = p.span || 12;   // how wide the wings are (the Plane Designer can change it)
 
       // A skin changes the colors (Classic keeps the plane's own colors)
       const k = S();
@@ -1335,12 +1633,12 @@
 
       ctx.fillStyle = wing;
       ctx.beginPath();
-      ctx.moveTo(nose, 0); ctx.lineTo(-20, -12); ctx.lineTo(-10, 0); ctx.closePath();
+      ctx.moveTo(nose, 0); ctx.lineTo(-20, -span); ctx.lineTo(-10, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
 
       ctx.fillStyle = fold;
       ctx.beginPath();
-      ctx.moveTo(nose, 0); ctx.lineTo(-10, 0); ctx.lineTo(-16, 12); ctx.closePath();
+      ctx.moveTo(nose, 0); ctx.lineTo(-10, 0); ctx.lineTo(-16, span); ctx.closePath();
       ctx.fill(); ctx.stroke();
 
       // The skin's pattern: little shapes at spots that are inside the wings
@@ -1381,8 +1679,17 @@
         }
       });
 
+      // A sticker from the Plane Designer
+      if (p.sticker) {
+        ctx.font = "9px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(p.sticker, 0, -3);
+        ctx.textBaseline = "alphabetic";
+      }
+
       // The fins!
-      if (chosen === "skyfin" || chosen === "skyfinplus") {
+      if (p.fins || chosen === "skyfin" || chosen === "skyfinplus") {
         ctx.fillStyle = fold;
         ctx.beginPath();
         ctx.moveTo(-14, -8); ctx.lineTo(-22, -20); ctx.lineTo(-8, -10); ctx.closePath();
@@ -1399,7 +1706,22 @@
       ctx.translate(-4, -8);
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = "#111";
-      if (hat === "party") {
+      if (hat === "santa") {
+        ctx.fillStyle = "#d33a2c";
+        ctx.beginPath(); ctx.moveTo(-6, -1); ctx.lineTo(6, -1); ctx.quadraticCurveTo(4, -12, 11, -12); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-7.5, -2.5, 15, 3.5); ctx.strokeRect(-7.5, -2.5, 15, 3.5);
+        ctx.beginPath(); ctx.arc(11, -12, 2.8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      } else if (hat === "elf") {
+        ctx.fillStyle = "#3a9a4a";
+        ctx.beginPath(); ctx.moveTo(-6, -1); ctx.lineTo(6, -1); ctx.lineTo(-1, -17); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#d33a2c";
+        ctx.fillRect(-7, -2.5, 14, 3); ctx.strokeRect(-7, -2.5, 14, 3);
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath(); ctx.arc(-1, -17, 2.3, 0, Math.PI * 2); ctx.fill();
+      } else if (hat === "party") {
         ctx.fillStyle = "#d33a2c";
         ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(0, -16); ctx.closePath();
         ctx.fill(); ctx.stroke();
@@ -1468,6 +1790,19 @@
           ctx.fillStyle = "#e8e4d8";
           ctx.fillRect(x - 11.5, y - 14, 7, 5);
           ctx.fillRect(x + 4.5, y - 14, 7, 5);
+        } else if (u.type === "snowball") {
+          // a snowball with a little snowflake
+          ctx.beginPath();
+          ctx.arc(x, y, 12, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "#7cc4f2";
+          ctx.stroke();
+          ctx.fillStyle = "#2f55a0";
+          ctx.font = "13px 'Segoe UI', Arial, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText("❄", x, y + 5);
         } else {
           // a clock
           ctx.beginPath();
@@ -1753,10 +2088,14 @@
         ctx.strokeStyle = "rgba(200, 220, 255, 0.6)";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        rainDrops.forEach(function (d) { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 3, d.y + 12); });
+        rainDrops.forEach(function (d) { if (!d.snow) { ctx.moveTo(d.x, d.y); ctx.lineTo(d.x - 3, d.y + 12); } });
         ctx.stroke();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        rainDrops.forEach(function (d) {
+          if (d.snow) { ctx.beginPath(); ctx.arc(d.x, d.y, 2 + d.s, 0, Math.PI * 2); ctx.fill(); }
+        });
       }
-      if (weather === "wind" && !(boss || cops || antis)) {
+      if (weather === "wind" && !(boss || cops || antis || snowman)) {
         // white streaks blowing in the wind's direction
         ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
         ctx.lineWidth = 2;
@@ -1800,6 +2139,87 @@
         ctx.fillStyle = "rgba(255, 255, 255, " + (flash / 16) + ")";
         ctx.fillRect(0, 0, W, H);
       }
+    }
+
+    // The giant snowman (facing left): 3 snowballs, a top hat, a scarf, and an angry face
+    function drawSnowman() {
+      if (!snowman) return;
+      const x = snowman.x, y = snowman.y;
+      ctx.save();
+      // stick arms (one goes up when he throws)
+      ctx.strokeStyle = "#6b4a2a";
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x - 25, y + 5); ctx.lineTo(x - 65, snowman.arm > 0 ? y - 40 : y + 20);
+      ctx.moveTo(x + 25, y + 5); ctx.lineTo(x + 62, y - 15);
+      ctx.stroke();
+      // the 3 big snowballs
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#111";
+      ctx.fillStyle = "#ffffff";
+      [[y + 70, 48], [y + 5, 36], [y - 55, 27]].forEach(function (c) {
+        ctx.beginPath(); ctx.arc(x, c[0], c[1], 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      });
+      // coal buttons
+      ctx.fillStyle = "#111";
+      [y - 5, y + 12, y + 29].forEach(function (by) { ctx.beginPath(); ctx.arc(x - 8, by, 4, 0, Math.PI * 2); ctx.fill(); });
+      // red scarf
+      ctx.fillStyle = "#d33a2c";
+      ctx.fillRect(x - 28, y - 33, 56, 10); ctx.strokeRect(x - 28, y - 33, 56, 10);
+      ctx.fillRect(x + 8, y - 25, 11, 28); ctx.strokeRect(x + 8, y - 25, 11, 28);
+      // angry eyes and eyebrows
+      ctx.beginPath(); ctx.arc(x - 14, y - 62, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + 2, y - 62, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x - 22, y - 73); ctx.lineTo(x - 8, y - 67); ctx.moveTo(x - 4, y - 67); ctx.lineTo(x + 9, y - 72); ctx.stroke();
+      // coal frown
+      [-14, -9, -4, 1].forEach(function (mx, i) {
+        ctx.beginPath(); ctx.arc(x + mx, y - 40 - (i === 1 || i === 2 ? 2 : 0), 1.8, 0, Math.PI * 2); ctx.fill();
+      });
+      // carrot nose, pointing at you
+      ctx.fillStyle = "#f2862a";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x - 6, y - 56); ctx.lineTo(x - 36, y - 52); ctx.lineTo(x - 6, y - 49); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      // top hat
+      ctx.fillStyle = "#111";
+      ctx.fillRect(x - 25, y - 84, 50, 7);
+      ctx.fillRect(x - 16, y - 114, 32, 32);
+      ctx.fillStyle = "#d33a2c";
+      ctx.fillRect(x - 16, y - 90, 32, 6);
+      ctx.restore();
+      if (!snowman.leaving) comicText("Snowballs left: " + snowman.ballsLeft, x - 25, y + 140, 18, "#bfe6ff");
+    }
+
+    function drawSnowballs() {
+      snowballs.forEach(function (b) {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#5a7aa0";
+        ctx.stroke();
+        ctx.fillStyle = "rgba(124, 196, 242, 0.5)";   // a little blue shadow
+        ctx.beginPath(); ctx.arc(b.x + b.r * 0.3, b.y + b.r * 0.3, b.r * 0.5, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+
+    // The snowball shield: a frosty bubble around your plane
+    function drawShield() {
+      if (!shield && safeTimer <= 0) return;
+      if (safeTimer > 0 && Math.floor(safeTimer / 5) % 2 === 0) return;   // blinks after it pops
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(plane.x, plane.y, 28 * P().size, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(220, 240, 255, 0.35)";
+      ctx.fill();
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+      ctx.restore();
     }
 
     // The see-through ghost of your best run
@@ -1860,8 +2280,9 @@
       drawBackground();
       drawStacks();
       const live = state === "playing" || state === "paused";
-      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawGhost(); }
+      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawGhost(); }
       if (state !== "start") drawPlane();
+      if (live) drawShield();
       if (live) drawWeather();
 
       if (live) {
@@ -1870,6 +2291,8 @@
         const active = [];
         if (magnetTimer > 0) active.push("🧲 " + Math.ceil(magnetTimer / 60));
         if (slowTimer > 0) active.push("⏱️ " + Math.ceil(slowTimer / 60));
+        if (shield) active.push("⛄ Shield");
+        if (mode === "rush") comicText("👾 ROUND " + rushRound, W / 2, 105, 20, "#ff9ecf");
         if (active.length) comicText(active.join("   "), W / 2, H - 60, 20, "#ffffff");
         if (unlockTimer > 0) {
           comicText("NEW PLANE UNLOCKED!", W / 2, 120, 26, "#f2c230");
@@ -1884,12 +2307,17 @@
           comicText("Tap or press P to keep flying", W / 2, H / 2 + 30, 22, "#ffffff");
         }
       } else if (state === "start") {
-        comicText("HDBOC", W / 2, 150, 56, "#f2c230");
-        comicText("Paper Airplane", W / 2, 200, 34, "#ffffff");
+        if (mode === "rush") {
+          comicText("BOSS RUSH", W / 2, 150, 52, "#ff9ecf");
+          comicText("Bosses. Nonstop.", W / 2, 200, 30, "#ffffff");
+        } else {
+          comicText("HDBOC", W / 2, 150, 56, "#f2c230");
+          comicText("Paper Airplane", W / 2, 200, 34, "#ffffff");
+        }
         drawPlaneShape(W / 2, 290, -0.15, 2.4);
         comicText("Flying: " + P().name, W / 2, 380, 24, "#ffffff");
         comicText("Tap or press Space", W / 2, 430, 24, "#ffffff");
-        comicText("Best: " + best(), W / 2, 470, 22, "#f2c230");
+        comicText(mode === "rush" ? "Best Boss Rush: " + rushBest : "Best: " + best(), W / 2, 470, 22, "#f2c230");
         const next = nextLocked();
         if (next) comicText("Score 10 to unlock " + next.name + "!", W / 2, 510, 18, "#ffffff");
         if (daily && !daily.done) comicText("📅 " + todaysChallenge().text, W / 2, 545, 17, "#f2c230");
@@ -1897,7 +2325,8 @@
       } else {
         comicText("CRASH!", W / 2, 200, 60, "#d33a2c");
         comicText("Score: " + score, W / 2, 270, 32, "#ffffff");
-        comicText("Best with " + P().name + ": " + best(), W / 2, 310, 22, "#f2c230");
+        if (mode === "rush") comicText("Round " + rushRound + " · Best Boss Rush: " + rushBest, W / 2, 310, 22, "#f2c230");
+        else comicText("Best with " + P().name + ": " + best(), W / 2, 310, 22, "#f2c230");
         if (frame > 30) comicText("Tap to play again", W / 2, 400, 24, "#ffffff");
         if (unlockedName && score >= 10) comicText("You unlocked " + unlockedName + "!", W / 2, 450, 22, "#f2c230");
       }

@@ -35,3 +35,32 @@ document.addEventListener("DOMContentLoaded", function () {
   show();
   nav.appendChild(button);
 });
+
+// ===== HOLIDAY SNOW =====
+// Snowflakes gently fall on every page.
+//   "auto" = only from Nov 20 to Jan 10,   "on" = always,   "off" = never
+const SNOW = "auto";
+
+document.addEventListener("DOMContentLoaded", function () {
+  const now = new Date();
+  const month = now.getMonth(), day = now.getDate();   // month: 0 = January, 10 = November, 11 = December
+  const snowSeason = (month === 10 && day >= 20) || month === 11 || (month === 0 && day <= 10);
+  if (SNOW === "off" || (SNOW === "auto" && !snowSeason)) return;
+  // Some people get dizzy from moving things, so they can turn animations off
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const snow = document.createElement("div");
+  snow.className = "snow";
+  snow.setAttribute("aria-hidden", "true");
+  for (let i = 0; i < 40; i++) {
+    const flake = document.createElement("span");
+    flake.textContent = i % 3 === 0 ? "❄" : "•";
+    flake.style.left = Math.random() * 100 + "%";
+    flake.style.fontSize = (i % 3 === 0 ? 10 + Math.random() * 10 : 8 + Math.random() * 8) + "px";
+    flake.style.animationDuration = 8 + Math.random() * 10 + "s";   // some fall faster than others
+    flake.style.animationDelay = -Math.random() * 18 + "s";          // start at different spots
+    flake.style.opacity = 0.5 + Math.random() * 0.5;
+    snow.appendChild(flake);
+  }
+  document.body.appendChild(snow);
+});

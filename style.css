@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 18 badges = 6 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 21 badges = 7 neat rows of 3 */
   gap: 10px;
 }
 .badge {
@@ -1095,7 +1095,7 @@ a.card:hover {
 }
 .shop-items {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));   /* 8 things = 2 rows of 4 */
+  grid-template-columns: repeat(5, minmax(0, 1fr));   /* 10 things = 2 rows of 5 */
   gap: 10px;
 }
 @media (max-width: 520px) {
@@ -1500,4 +1500,235 @@ kbd {
   font-family: inherit;
   font-weight: bold;
   text-align: center;
+}
+
+/* ===== HOLIDAY SNOW (added by site.js) ===== */
+.snow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;   /* you can still click through the snow */
+  overflow: hidden;
+  z-index: 50;
+}
+.snow span {
+  position: absolute;
+  top: -20px;
+  color: #ffffff;
+  text-shadow: 0 0 3px rgba(15, 42, 74, 0.6);   /* so white flakes show up on white boxes too */
+  animation-name: snowfall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes snowfall {
+  0%   { transform: translate(0, 0); }
+  50%  { transform: translate(25px, 52vh); }
+  100% { transform: translate(-10px, 105vh); }
+}
+@media print {
+  .snow { display: none; }
+}
+
+/* Holiday banner on the homepage */
+.holiday-banner {
+  max-width: 600px;
+  margin: 0 auto 28px;
+  background: linear-gradient(135deg, #1f6b3a, #2a8a4a);
+  color: var(--white);
+  border: 3px dashed #d33a2c;
+  border-radius: 12px;
+  padding: 16px 20px;
+  text-align: center;
+}
+.holiday-banner h3 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+.holiday-banner p {
+  margin: 0 0 12px;
+}
+.holiday-banner .button {
+  margin: 0;
+  background: #d33a2c;
+}
+.holiday-banner .button:hover {
+  background: #a82a1f;
+}
+:root[data-theme="dark"] section .holiday-banner a.button {
+  color: var(--white);
+}
+
+/* ===== GIFT TAGS ===== */
+.tag-sheet {
+  display: grid;
+  grid-template-columns: repeat(2, 3.5in);
+  gap: 0.15in;
+  justify-content: center;
+}
+.gift-tag {
+  box-sizing: border-box;
+  width: 3.5in;
+  height: 2.2in;
+  padding: 0.14in 0.18in;
+  background: #ffffff;
+  color: #0f2a4a;
+  border: 2px dashed #6b7280;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  break-inside: avoid;
+}
+.gift-tag:nth-child(odd) { background: #fff6f0; }
+.gift-tag:nth-child(even) { background: #f0fff4; }
+.tag-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tag-top img {
+  height: 0.45in;
+}
+.tag-icons {
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+.tag-line {
+  display: flex;
+  gap: 6px;
+  font-weight: bold;
+  font-size: 15px;
+}
+.tag-line span {
+  flex: 1;
+  border-bottom: 1px solid #0f2a4a;
+}
+.tag-made {
+  font-size: 11px;
+  text-align: center;
+  color: #6b7280;
+}
+.tag-hole {
+  position: absolute;
+  top: 0.12in;
+  left: 50%;
+  width: 0.16in;
+  height: 0.16in;
+  margin-left: -0.08in;
+  border: 2px solid #6b7280;
+  border-radius: 50%;
+}
+@media (max-width: 760px) {
+  .tag-sheet { grid-template-columns: 3.5in; }
+}
+@media print {
+  .tag-sheet { grid-template-columns: repeat(2, 3.5in); }
+  .gift-tag { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* ===== GAME MODE (Normal / Boss Rush) ===== */
+.mode-picker {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+.mode-choice {
+  font: inherit;
+  font-weight: bold;
+  padding: 8px 18px;
+  border: 3px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.mode-choice:hover {
+  border-color: var(--blue);
+}
+.mode-choice.selected {
+  border-color: var(--text);
+  background: var(--cream);
+  box-shadow: 0 0 0 2px var(--text);
+}
+.mode-choice:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ===== PLANE DESIGNER ===== */
+.designer {
+  max-width: 760px;
+  margin: 16px auto 0;
+  background: var(--surface);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  text-align: left;
+}
+.designer summary {
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 18px;
+  padding: 12px 16px;
+}
+.designer summary:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+.designer-body {
+  padding: 0 16px 12px;
+}
+.designer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.designer-row > strong {
+  min-width: 90px;
+}
+.designer-row input {
+  font: inherit;
+  padding: 6px 10px;
+  border: 2px solid var(--gray);
+  border-radius: 8px;
+}
+.designer-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.designer-options button {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 12px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.designer-options button.on {
+  border-color: var(--text);
+  background: var(--cream);
+  box-shadow: 0 0 0 2px var(--text);
+}
+.designer-options button:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+.designer-options .swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #111;
+}
+.designer-options .swatch.on {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text);
+}
+.designer-options .sticker-choice {
+  min-width: 40px;
+  font-size: 18px;
+  padding: 4px 8px;
 }
