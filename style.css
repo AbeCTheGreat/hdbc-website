@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 24 badges = 8 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 27 badges = 9 neat rows of 3 */
   gap: 10px;
 }
 .badge {
@@ -1905,4 +1905,72 @@ tr.sold-out td {
   background: transparent;
   color: var(--text);
   cursor: pointer;
+}
+
+/* ===== HDBOC NEWS ===== */
+.news {
+  max-width: 640px;
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+.news-item {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-left: 6px solid #f2c230;
+}
+.news-item h3 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.news-item p {
+  margin: 0;
+  color: var(--gray);
+  line-height: 1.5;
+}
+.news-item .news-date {
+  font-size: 13px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #d33a2c;
+  margin-bottom: 4px;
+}
+.news-item a {
+  color: var(--link);
+}
+
+/* ===== LEADERBOARD ===== */
+.records.leaderboard {
+  max-width: 560px;
+}
+.submit-score {
+  max-width: 400px;
+  margin: 0 auto 16px;
+  padding: 14px 16px;
+  background: var(--cream);
+  border: 3px solid #f2c230;
+  border-radius: 12px;
+}
+.submit-score[hidden] {
+  display: none;
+}
+.submit-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 10px 0 4px;
+}
+.submit-row input {
+  flex: 1;
+  max-width: 220px;
+  font: inherit;
+  padding: 8px 12px;
+  border: 2px solid var(--gray);
+  border-radius: 8px;
+}
+.submit-score .hint {
+  margin: 4px 0 0;
 }

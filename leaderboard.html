@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leaderboard - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+  <!-- The leaderboard's settings and helpers -->
+  <script src="leaderboard.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- THE LEADERBOARD -->
+  <section class="game-section">
+    <h2>🏆 HDBOC Leaderboard</h2>
+    <p class="game-help">The best scores in the <a href="game.html">Paper Airplane Game</a> (Normal mode).
+      After you crash, type a nickname to put your score here!</p>
+
+    <div class="records leaderboard">
+      <table class="records-table" id="board">
+        <tr><td>Loading scores...</td></tr>
+      </table>
+    </div>
+    <p class="game-help"><button type="button" class="sound-button" id="refresh">🔄 Refresh</button></p>
+    <p class="hint">New scores can take a few minutes to show up.</p>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    const board = document.getElementById("board");
+
+    function message(text) {
+      board.innerHTML = "";
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.textContent = text;
+      row.appendChild(cell);
+      board.appendChild(row);
+    }
+
+    function show() {
+      if (!leaderboardReady()) { message("The leaderboard is coming soon!"); return; }
+      message("Loading scores...");
+      loadScores().then(function (scores) {
+        if (!scores.length) { message("No scores yet. Be the first!"); return; }
+        board.innerHTML = "<tr><th>#</th><th>Nickname</th><th>Plane</th><th>Score</th></tr>";
+        scores.slice(0, 25).forEach(function (s, i) {
+          const row = document.createElement("tr");
+          [["🥇", "🥈", "🥉"][i] || String(i + 1), s.name, s.plane, String(s.score)].forEach(function (text) {
+            const cell = document.createElement("td");
+            cell.textContent = text;   // textContent keeps nicknames as plain words (no tricks)
+            row.appendChild(cell);
+          });
+          board.appendChild(row);
+        });
+      }).catch(function () {
+        message("Couldn't load the scores right now. Try Refresh.");
+      });
+    }
+
+    document.getElementById("refresh").addEventListener("click", show);
+    show();
+  </script>
+
+</body>
+</html>

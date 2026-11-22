@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="style.css">
   <!-- Dark mode (and its button) -->
   <script src="site.js"></script>
+  <!-- The leaderboard's settings and helpers -->
+  <script src="leaderboard.js"></script>
 </head>
 
 <body>
@@ -52,6 +54,10 @@
         <strong>Sky Fin+</strong>
         <span>⚡ Aerodynamic: tiny and super fast. 2 points per stack!</span>
       </button>
+      <button type="button" class="plane-choice" data-plane="turbodart" role="radio">
+        <strong>Turbo Dart</strong>
+        <span>🚀 Turbo: tap twice fast for a speed boost with DOUBLE points!</span>
+      </button>
       <button type="button" class="plane-choice" data-plane="custom" role="radio">
         <strong id="custom-name">✏️ My Plane</strong>
         <span>Your own design! Change it in the Plane Designer.</span>
@@ -93,6 +99,17 @@
 
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
     <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
+    <!-- SEND YOUR SCORE TO THE LEADERBOARD (shows up after you crash) -->
+    <div class="submit-score" id="submit-score" hidden>
+      <strong>🏆 Put your <span id="submit-points">0</span> points on the <a href="leaderboard.html">leaderboard</a>!</strong>
+      <div class="submit-row">
+        <input type="text" id="nickname" maxlength="12" placeholder="Nickname" aria-label="Your nickname">
+        <button type="button" id="send-score" class="sound-button">Send</button>
+      </div>
+      <p class="hint">Use a nickname, not your real full name.</p>
+      <p class="hint" id="send-status" role="status"></p>
+    </div>
+
     <div class="game-buttons">
       <button type="button" id="sound-button" class="sound-button" aria-pressed="true">🔊 Sound on</button>
       <button type="button" id="music-button" class="sound-button" aria-pressed="true">🎵 Music on</button>
@@ -125,6 +142,7 @@
       🤫 And if you make it to <strong>200</strong>... you'll find a secret.<br>
       👾 <strong>Boss Rush:</strong> no stacks, just bosses, one after another. Each round gets faster!<br>
       ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, and a giant snowman at 75 points!<br>
+      🌀 Keep your eyes open after 30 points... a secret portal might show up!<br>
       📖 <strong>Story mode:</strong> 5 levels starring the HDBOC characters. Can you finish the story?<br>
       🐶 Buy a <strong>flying buddy</strong> in the Coin Shop. It flies next to you and grabs coins!</p>
 
@@ -158,6 +176,7 @@
         <tr><td>Looper</td><td>43</td></tr>
         <tr><td>Sky Fin</td><td>14</td></tr>
         <tr><td>Sky Fin+</td><td>54</td></tr>
+        <tr><td>Turbo Dart</td><td>-</td></tr>
       </table>
     </div>
 
@@ -166,7 +185,7 @@
 
   <!-- BOTTOM BAR -->
   <footer>
-    <p class="footer-links"><a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
     &copy; 2026 HDBOC Paper Products
   </footer>
 
@@ -195,7 +214,10 @@
       skyfin:     { name: "Sky Fin",      gravity: 0.24, flap: -5.4, speed: 2.4, size: 1.0,  points: 1, loops: false,
                     wing: "#bcd7ff", fold: "#2f55a0" },
       skyfinplus: { name: "Sky Fin+",     gravity: 0.34, flap: -6.4, speed: 3.1, size: 0.65, points: 2, loops: false,
-                    wing: "#ffd0c9", fold: "#d33a2c" }
+                    wing: "#ffd0c9", fold: "#d33a2c" },
+      // turbo = tap twice fast for a TURBO BOOST (faster, and double points)
+      turbodart:  { name: "Turbo Dart",   gravity: 0.33, flap: -6.3, speed: 2.6, size: 0.9,  points: 1, loops: false,
+                    wing: "#e6dcff", fold: "#7a4ab8", nose: 26, span: 11, fins: true, turbo: true }
     };
 
     // ----- WINTER -----
@@ -250,6 +272,8 @@
     let snowman, snowballs, snowDone;   // the winter boss (at 75 points)
     let shield = false, safeTimer = 0;  // the snowball shield power-up
     let rushRound = 1, rushStep = 0, rushWait = 0;   // Boss Rush mode
+    let boostTimer = 0, boostCool = 0, lastFlap = -99, boostsThisGame = 0;   // the Turbo Dart's boost
+    let water = 0, portal = null, shark = null, sharkDone = false, waterScore = 0;   // the secret underwater world
 
     // ----- SOUND EFFECTS -----
     // We don't use sound files. The computer makes the sounds itself with the
@@ -361,6 +385,7 @@
     function currentSong() {
       if (song !== "auto") return SONGS[song];
       if (space > 0) return SONGS.space;
+      if (water > 0) return SONGS.night;
       if (night > 0.5) return SONGS.night;
       if (WINTER) return SONGS.holiday;
       return SONGS.day;
@@ -399,7 +424,7 @@
       if (!musicOn || !audio || state !== "playing") return;
       const music = currentSong();   // the song from the jukebox
       const tune = music.m;
-      const fast = boss || cops || antis || snowman ? 2 : 1;   // the tune goes double-speed during a boss!
+      const fast = boss || cops || antis || snowman || shark ? 2 : 1;   // the tune goes double-speed during a boss!
       for (let i = 0; i < fast; i++) {
         musicNote("triangle", tune[musicStep % 16], 0.14, 0.05);
         musicNote("square", music.b[musicStep % 16], 0.3, 0.025);
@@ -429,7 +454,7 @@
       { id: "loop",      icon: "🔄", name: "Loop Master",    how: "Score 20 with Looper" },
       { id: "fin",       icon: "🪽", name: "Fin-tastic",     how: "Score 20 with Sky Fin" },
       { id: "speed",     icon: "🚀", name: "Speed Demon",    how: "Score 40 with Sky Fin+" },
-      { id: "allplanes", icon: "✈️", name: "Full Hangar",    how: "Unlock all 4 planes" },
+      { id: "allplanes", icon: "✈️", name: "Full Hangar",    how: "Unlock all 5 planes" },
       { id: "boss",      icon: "🐶", name: "Dog Dodger",     how: "Survive Biscuit the boss" },
       { id: "donut",     icon: "🍩", name: "Donut Dodger",   how: "Survive the Not Smart Cops" },
       { id: "challenge", icon: "📅", name: "Challenger",     how: "Finish a daily challenge" },
@@ -445,7 +470,10 @@
       { id: "designer",  icon: "✏️", name: "Plane Designer", how: "Fly a plane you designed" },
       { id: "story",     icon: "📖", name: "Story Hero",     how: "Finish all 5 story levels" },
       { id: "buddy",     icon: "🐶", name: "Best Friends",   how: "Get a flying buddy" },
-      { id: "dj",        icon: "🎶", name: "DJ",             how: "Pick a song in the jukebox" }
+      { id: "dj",        icon: "🎶", name: "DJ",             how: "Pick a song in the jukebox" },
+      { id: "turbo",     icon: "⚡", name: "Turbo Charged",  how: "Use 3 turbo boosts in one game" },
+      { id: "diver",     icon: "🌊", name: "Deep Diver",     how: "Find the secret underwater world" },
+      { id: "shark",     icon: "🦈", name: "Shark Bait",     how: "Survive the shark" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -479,7 +507,8 @@
       if (chosen === "looper" && score >= 20) earn("loop");
       if (chosen === "skyfin" && score >= 20) earn("fin");
       if (chosen === "skyfinplus" && score >= 40) earn("speed");
-      if (isUnlocked("skyfinplus")) earn("allplanes");
+      if (isUnlocked("turbodart")) earn("allplanes");
+      if (boostsThisGame >= 3) earn("turbo");
       if (skin !== "classic" && score >= 1) earn("skin");
       if (boltsDodged >= 3) earn("storm");
       if (chosen === "custom" && score >= 1) earn("designer");
@@ -799,7 +828,7 @@
     // ----- UNLOCKING PLANES -----
     // You start with The Original. Score 10 in one game with a plane
     // to unlock the next one in this list.
-    const ORDER = ["original", "looper", "skyfin", "skyfinplus"];
+    const ORDER = ["original", "looper", "skyfin", "skyfinplus", "turbodart"];
     function isUnlocked(id) {
       if (id === "custom") return true;   // your own plane is always ready
       const i = ORDER.indexOf(id);
@@ -845,6 +874,15 @@
       ghostData = loadGhost();
       ghostPassed = false;
       space = 0;
+      boostTimer = 0;
+      boostCool = 0;
+      lastFlap = -99;
+      boostsThisGame = 0;
+      if (submitBox) submitBox.hidden = true;
+      water = 0;          // 0 = not underwater, 1 = all the way under
+      portal = null;      // the secret portal (it shows up after 30 points)
+      shark = null;
+      sharkDone = false;
       snowman = null;
       snowballs = [];
       snowDone = !WINTER;   // the snowman only comes in winter
@@ -1007,7 +1045,16 @@
         if (frame > 30) { reset(); state = "playing"; }   // wait a moment so you don't restart by accident
         return;
       }
-      plane.vy = P().flap;
+      plane.vy = P().flap * (water >= 1 ? 0.85 : 1);   // flapping is harder underwater
+      // TURBO DART: two taps close together = TURBO BOOST!
+      if (P().turbo && frame - lastFlap < 14 && boostCool <= 0) {
+        boostTimer = 180;   // 3 seconds of turbo
+        boostCool = 480;    // then 8 seconds to recharge
+        boostsThisGame++;
+        play("powerup");
+        pops.push({ x: plane.x, y: plane.y - 20, t: 50, text: "TURBO!" });
+      }
+      lastFlap = frame;
       play("flap");
       if (P().loops) { loopTimer = 30; plane.spin = 0; }   // Looper: loop-the-loop!
     }
@@ -1030,7 +1077,7 @@
       }
       if (unlockTimer > 0) unlockTimer--;
       // SECRET LEVEL: at 200 points you fly right up into OUTER SPACE!
-      if (score >= 200 && space === 0 && mode === "normal") {
+      if (score >= 200 && space === 0 && mode === "normal" && water === 0) {
         space = 0.001;
         weather = "clear";
         rainDrops = [];
@@ -1049,12 +1096,12 @@
 
       // ----- WEATHER -----
       // Every so often the weather changes. No wind or lightning during a boss fight!
-      const bossHere = boss || cops || antis || snowman;
+      const bossHere = boss || cops || antis || snowman || shark;
       if (score >= 5 && mode === "normal") weatherTimer--;   // no surprise weather in Boss Rush or Story
       if (weatherTimer <= 0) {
         weatherTimer = 500 + Math.random() * 300;
         const r = Math.random();
-        if (bossHere || space > 0 || r < 0.4) weather = "clear";
+        if (bossHere || space > 0 || water > 0 || r < 0.4) weather = "clear";
         else if (r < 0.7) weather = night > 0.5 ? "storm" : (WINTER ? "snow" : "rain");
         else weather = "wind";
         if (weather === "wind") {
@@ -1075,7 +1122,7 @@
       const windPush = weather === "wind" && !bossHere ? windDir * 0.1 : 0;
       const rainPush = rainy ? 0.03 : 0;   // wet paper is heavier!
 
-      plane.vy += (P().gravity + windPush + rainPush) * (space >= 1 ? 0.8 : 1);   // less gravity in space!
+      plane.vy += (P().gravity + windPush + rainPush) * (space >= 1 ? 0.8 : water >= 1 ? 0.75 : 1);   // less gravity in space and underwater!
 
       // Raindrops falling
       if (rainy && rainDrops.length < 90) rainDrops.push({ x: Math.random() * (W + 100), y: -10, s: 7 + Math.random() * 4 });
@@ -1133,7 +1180,7 @@
 
       // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
       const storyBossTime = mode === "story" && storyPhase !== "goal";
-      if (!boss && !cops && !antis && !snowman && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
+      if (!boss && !cops && !antis && !snowman && !shark && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
       if (spawnClock >= SPAWN_EVERY) {
         spawnClock -= SPAWN_EVERY;
         addStack();
@@ -1147,17 +1194,19 @@
           // In winter, a third kind of power-up can show up: the snowball shield!
           const kind = WINTER && Math.random() < 0.34 ? "snowball" : (Math.random() < 0.5 ? "magnet" : "slow");
           powerups.push({ x: W, y: y, type: kind });
+        } else if (mode === "normal" && water === 0 && space === 0 && !portal && score >= 30 && Math.random() < 0.12) {
+          portal = { x: W, y: y };   // a rare secret portal!
         } else if (Math.random() < 0.7) {
           coins.push({ x: W, y: y });
         }
       }
-      speed = (P().speed + score * 0.03) * slow;
+      speed = (P().speed + score * 0.03) * slow * (boostTimer > 0 ? 1.5 : 1);   // turbo = 1.5 times faster
 
       stacks.forEach(function (s) {
         s.x -= speed;
         if (!s.scored && s.x + STACK_WIDTH < plane.x) {
           s.scored = true;
-          score += P().points;
+          score += P().points * (boostTimer > 0 ? 2 : 1);   // turbo = double points
           storyStacks++;
           play("point");
           checkUnlock();
@@ -1257,7 +1306,7 @@
         }
       }
 
-      if (!boss && !bossDone && score >= 50) startBiscuit();
+      if (!boss && !bossDone && !shark && score >= 50) startBiscuit();
       if (boss) {
         // Slide in from the right, then bob up and down
         const homeX = 320;
@@ -1298,7 +1347,7 @@
       // ----- BOSS 2: the Not Smart Cops (Barry and Lou) -----
       // At 100 points they drive up in a flying police car and throw donuts.
       // Dodge 12 donuts to win!
-      if (!cops && !copsDone && !boss && !snowman && score >= 100) startCops();
+      if (!cops && !copsDone && !boss && !snowman && !shark && score >= 100) startCops();
       if (cops) {
         const copsHome = 300;
         if (cops.leaving) cops.x += 3.5;
@@ -1345,7 +1394,7 @@
       // ----- BOSS 3: PRAYINGANTIS -----
       // At 150 points, the hero shows up. He thinks your plane is a bug,
       // so he shoots fire at it! Dodge 12 fire shots to win.
-      if (!antis && !antisDone && !boss && !cops && !snowman && score >= 150) startAntis();
+      if (!antis && !antisDone && !boss && !cops && !snowman && !shark && score >= 150) startAntis();
       if (antis) {
         const antisHome = 310;
         if (antis.leaving) { antis.x += 2.5; antis.y -= 3; }   // he flies up and away
@@ -1391,7 +1440,7 @@
 
       // ----- WINTER BOSS: THE GIANT SNOWMAN -----
       // At 75 points (only in winter), a giant snowman throws snowballs. Dodge 10!
-      if (!snowman && !snowDone && !boss && !cops && !antis && score >= 75) startSnowman();
+      if (!snowman && !snowDone && !boss && !cops && !antis && !shark && score >= 75) startSnowman();
       if (snowman) {
         const snowHome = 310;
         if (snowman.leaving) snowman.x += 3;
@@ -1437,6 +1486,62 @@
       snowballs = snowballs.filter(function (b) { return b.x > -40 && b.y < GROUND + 30; });
 
       if (safeTimer > 0) safeTimer--;
+      if (boostTimer > 0) boostTimer--;
+      if (boostCool > 0) boostCool--;
+
+      // ----- THE SECRET PORTAL: fly into it to go UNDERWATER -----
+      if (portal) {
+        portal.x -= speed;
+        const pdx = portal.x - plane.x, pdy = portal.y - plane.y;
+        if (pdx * pdx + pdy * pdy < 30 * 30) {
+          portal = null;
+          water = 0.001;
+          waterScore = score;
+          weather = "clear";
+          rainDrops = [];
+          bolt = null;
+          play("unlock");
+          toasts.push({ text: "🌊 SECRET WORLD: UNDERWATER!", t: 180 });
+          toasts.push({ text: "Pearls, coral... and something BIG.", t: 180 });
+          earn("diver");
+        } else if (portal.x < -40) {
+          portal = null;
+        }
+      }
+      if (water > 0 && water < 1) water = Math.min(1, water + 1 / 90);
+
+      // ----- THE SHARK (15 points after you go underwater) -----
+      // A warning shows where it will charge from. Then it zooms across! Dodge 3 charges.
+      if (water >= 1 && !shark && !sharkDone && !boss && !cops && !antis && !snowman && score >= waterScore + 15) {
+        shark = { charges: 3, phase: "warn", t: 90, x: W + 100, y: plane.y };
+        play("boss");
+        toasts.push({ text: "🦈 SHARK! Watch for the warning!", t: 150 });
+      }
+      if (shark) {
+        if (shark.phase === "warn") {
+          shark.t -= slow;
+          if (shark.t > 25) shark.y += (plane.y - shark.y) * 0.1;   // it aims at you... then locks on
+          if (shark.t <= 0) { shark.phase = "charge"; play("bark"); }
+        } else {
+          shark.x -= 8 * slow;
+          if (shark.x < -160) {
+            shark.charges--;
+            score += 2;
+            checkUnlock();
+            if (shark.charges > 0) {
+              shark.phase = "warn";
+              shark.t = 70;
+              shark.x = W + 100;
+            } else {
+              shark = null;
+              sharkDone = true;
+              score += 10;
+              toasts.push({ text: "🦈 The shark gave up! +10", t: 150 });
+              earn("shark");
+            }
+          }
+        }
+      }
 
       // Remember where you are, for your ghost next time (every other frame)
       if (frame % 2 === 0) ghostRun.push(Math.round(plane.y));
@@ -1478,6 +1583,11 @@
       for (const b of snowballs) {
         const dx = b.x - plane.x, dy = b.y - plane.y;
         if (dx * dx + dy * dy < (b.r + 10 * P().size) * (b.r + 10 * P().size)) hit = true;
+      }
+      // Getting bitten by the shark
+      if (shark && shark.phase === "charge") {
+        const sdx = plane.x - shark.x, sdy = plane.y - shark.y;
+        if (sdx * sdx / (70 * 70) + sdy * sdy / (26 * 26) < 1) hit = true;
       }
       if (hit && safeTimer > 0) {
         // Just used your shield: you can't crash for a moment
@@ -1776,8 +1886,46 @@
       }
     }
 
+    // ----- LEADERBOARD: send your score after you crash -----
+    const submitBox = document.getElementById("submit-score");
+    const nicknameBox = document.getElementById("nickname");
+    const sendButton = document.getElementById("send-score");
+    const sendStatus = document.getElementById("send-status");
+    let scoreToSend = 0, planeToSend = "";
+    try { nicknameBox.value = localStorage.getItem("hdboc-nickname") || ""; } catch (e) {}
+    function offerLeaderboard() {
+      // only Normal mode scores go on the leaderboard (so it's fair)
+      if (!leaderboardReady() || mode !== "normal" || score < 1) { submitBox.hidden = true; return; }
+      scoreToSend = score;
+      planeToSend = P().name;
+      document.getElementById("submit-points").textContent = score;
+      sendButton.disabled = false;
+      sendStatus.textContent = "";
+      submitBox.hidden = false;
+    }
+    sendButton.addEventListener("click", function () {
+      const name = cleanNickname(nicknameBox.value);
+      if (!name) { sendStatus.textContent = "Please pick a different nickname (letters and numbers only)."; return; }
+      nicknameBox.value = name;
+      try { localStorage.setItem("hdboc-nickname", name); } catch (e) {}
+      sendButton.disabled = true;
+      sendStatus.textContent = "Sending...";
+      sendScore(name, scoreToSend, planeToSend).then(function () {
+        sendStatus.textContent = "✅ Sent! It shows up on the leaderboard in a few minutes.";
+      }).catch(function () {
+        sendStatus.textContent = "Couldn't send it. Check your internet and try again.";
+        sendButton.disabled = false;
+      });
+    });
+    // Pressing Enter in the nickname box sends it (and doesn't make the plane flap)
+    nicknameBox.addEventListener("keydown", function (e) {
+      e.stopPropagation();
+      if (e.key === "Enter") sendButton.click();
+    });
+
     function crash() {
       state = "over";
+      offerLeaderboard();
       play("crash");
       saveGhost();
       showShop();
@@ -1855,6 +2003,115 @@
       ctx.fillStyle = "#111";
       ctx.fillRect(0, GROUND, W, 4);
       if (space > 0) drawSpace();
+      if (water > 0) drawWater();
+    }
+
+    // UNDERWATER: blue water, light rays, bubbles, seaweed, and a sandy floor
+    function drawWater() {
+      ctx.save();
+      ctx.globalAlpha = water;
+      const sea = ctx.createLinearGradient(0, 0, 0, H);
+      sea.addColorStop(0, "#1a8fd4");
+      sea.addColorStop(1, "#062a5a");
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, 0, W, H);
+      // sunlight shining down through the water
+      ctx.fillStyle = "rgba(255, 255, 255, 0.07)";
+      for (let i = 0; i < 4; i++) {
+        const x = i * 120 + Math.sin(frame / 60 + i) * 20;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 50, 0); ctx.lineTo(x + 130, GROUND); ctx.lineTo(x + 30, GROUND); ctx.fill();
+      }
+      // bubbles floating up
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < STARS.length; i++) {
+        const st = STARS[i];
+        const by = ((st.y - frame * (st.s === 3 ? 1.2 : 0.6)) % GROUND + GROUND) % GROUND;
+        ctx.beginPath(); ctx.arc(st.x + Math.sin((frame + i * 20) / 30) * 4, by, st.s + 1, 0, Math.PI * 2); ctx.stroke();
+      }
+      // sandy floor
+      ctx.fillStyle = "#e8d29a";
+      ctx.fillRect(0, GROUND, W, H - GROUND);
+      // wavy seaweed
+      ctx.strokeStyle = "#2f9a4a";
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      for (let i = 0; i < 7; i++) {
+        const x = ((i * 70 - frame * 0.8) % (W + 70) + W + 70) % (W + 70) - 35;
+        ctx.beginPath();
+        ctx.moveTo(x, GROUND);
+        for (let k = 1; k <= 4; k++) ctx.lineTo(x + Math.sin(frame / 20 + i + k) * 6, GROUND - k * 16);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, GROUND, W, 4);
+      ctx.restore();
+    }
+
+    // The secret portal: a swirling blue whirlpool
+    function drawPortal() {
+      if (!portal) return;
+      ctx.save();
+      ctx.translate(portal.x, portal.y);
+      ctx.rotate(frame / 10);
+      for (let i = 0; i < 3; i++) {
+        ctx.strokeStyle = ["#7cc4f2", "#2f55a0", "#ffffff"][i];
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 0, 24 - i * 7, i, i + Math.PI * 1.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+      comicText("?", portal.x, portal.y + 7, 18, "#ffffff");
+    }
+
+    // The shark: first a warning, then it charges across the screen
+    function drawShark() {
+      if (!shark) return;
+      if (shark.phase === "warn") {
+        if (Math.floor(frame / 8) % 2 === 0) {
+          ctx.setLineDash([10, 10]);
+          ctx.strokeStyle = "rgba(255, 80, 80, 0.7)";
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(0, shark.y); ctx.lineTo(W, shark.y); ctx.stroke();
+          ctx.setLineDash([]);
+          comicText("⚠️ 🦈", W - 45, shark.y + 8, 26, "#ff5a5a");
+        }
+        comicText("Charges left: " + shark.charges, W / 2, 140, 18, "#bfe6ff");
+        return;
+      }
+      const x = shark.x, y = shark.y;
+      ctx.save();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#111";
+      ctx.lineJoin = "round";
+      // tail
+      ctx.fillStyle = "#6a7d92";
+      ctx.beginPath(); ctx.moveTo(x + 60, y); ctx.lineTo(x + 100, y - 30); ctx.lineTo(x + 90, y); ctx.lineTo(x + 100, y + 28); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // fin on top
+      ctx.beginPath(); ctx.moveTo(x - 5, y - 20); ctx.lineTo(x + 20, y - 52); ctx.lineTo(x + 30, y - 20); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // body
+      ctx.fillStyle = "#7a8ca0";
+      ctx.beginPath(); ctx.ellipse(x, y, 70, 26, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // white belly
+      ctx.fillStyle = "#e8eef5";
+      ctx.beginPath(); ctx.ellipse(x - 5, y + 10, 52, 11, 0, 0, Math.PI); ctx.fill();
+      // mean eye
+      ctx.fillStyle = "#111";
+      ctx.beginPath(); ctx.arc(x - 42, y - 8, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(x - 52, y - 16); ctx.lineTo(x - 34, y - 12); ctx.stroke();
+      // mouth full of teeth
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(x - 66, y + 4);
+      for (let i = 0; i < 5; i++) { ctx.lineTo(x - 62 + i * 6, y + 12); ctx.lineTo(x - 59 + i * 6, y + 4); }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      // gills
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) { ctx.moveTo(x - 22 + i * 6, y - 8); ctx.lineTo(x - 26 + i * 6, y + 6); }
+      ctx.stroke();
+      ctx.restore();
     }
 
     // OUTER SPACE: purple-black sky, zooming stars, planets, and a moon-rock floor
@@ -1908,12 +2165,18 @@
       for (let y = y1; y < y2; y += bookH) {
         const h = Math.min(bookH, y2 - y);
         const rock = space > 0.5;   // in space, the book stacks become space rocks!
-        ctx.fillStyle = rock ? ["#7a7a88", "#5f5f6e", "#8f8f9e"][i % 3] : colors[i % colors.length];
+        const reef = water > 0.5;   // underwater, they become coral!
+        ctx.fillStyle = rock ? ["#7a7a88", "#5f5f6e", "#8f8f9e"][i % 3]
+                      : reef ? ["#ff7a7a", "#ff9f5a", "#ff6bb0"][i % 3]
+                      : colors[i % colors.length];
         ctx.fillRect(x, y, STACK_WIDTH, h);
         ctx.strokeStyle = "#111";
         ctx.lineWidth = 3;
         ctx.strokeRect(x, y, STACK_WIDTH, h);
-        if (h > 12 && rock) {
+        if (h > 12 && reef) {
+          ctx.fillStyle = "rgba(255,255,255,0.55)";   // coral dots
+          ctx.beginPath(); ctx.arc(x + 14 + (i % 2) * 10, y + h / 2, 3, 0, Math.PI * 2); ctx.arc(x + 44 - (i % 2) * 8, y + h / 2 - 3, 2.5, 0, Math.PI * 2); ctx.fill();
+        } else if (h > 12 && rock) {
           ctx.fillStyle = "rgba(40,40,50,0.5)";   // craters
           ctx.beginPath(); ctx.arc(x + 18 + (i % 2) * 24, y + h / 2, 5, 0, Math.PI * 2); ctx.fill();
         } else if (h > 12) {
@@ -2153,7 +2416,7 @@
         const bob = Math.sin((frame + c.x) / 10) * 4;
         ctx.beginPath();
         ctx.arc(c.x, c.y + bob, 13, 0, Math.PI * 2);
-        ctx.fillStyle = "#f2c230";
+        ctx.fillStyle = water > 0.5 ? "#f8f0ff" : "#f2c230";   // underwater, coins are pearls
         ctx.fill();
         ctx.lineWidth = 3;
         ctx.strokeStyle = "#111";
@@ -2617,7 +2880,7 @@
       if (loopTimer > 0) tilt = -plane.spin;   // spinning backwards = a loop-the-loop!
       const scale = chosen === "skyfinplus" ? 0.75 : 1;
       // Fire skin: flickering flames shoot out the back
-      if (S().pattern === "flames" && state === "playing") {
+      if ((S().pattern === "flames" || boostTimer > 0) && state === "playing") {
         for (let i = 0; i < 3; i++) {
           const len = 14 + Math.random() * 12;
           ctx.fillStyle = i === 0 ? "rgba(242,194,48,0.9)" : "rgba(211,58,44,0.8)";
@@ -2657,7 +2920,7 @@
       drawBackground();
       drawStacks();
       const live = state === "playing" || state === "paused";
-      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawGhost(); }
+      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawPortal(); drawShark(); drawGhost(); }
       if (state !== "start") drawPlane();
       if (live) drawShield();
       if (live) drawBuddy(buddyPos.x, buddyPos.y, 1);
@@ -2670,6 +2933,7 @@
         if (magnetTimer > 0) active.push("🧲 " + Math.ceil(magnetTimer / 60));
         if (slowTimer > 0) active.push("⏱️ " + Math.ceil(slowTimer / 60));
         if (shield) active.push("⛄ Shield");
+        if (P().turbo) active.push(boostTimer > 0 ? "🚀 TURBO x2!" : boostCool > 0 ? "🚀 " + Math.ceil(boostCool / 60) : "🚀 Ready! Tap twice");
         if (mode === "rush") comicText("👾 ROUND " + rushRound, W / 2, 105, 20, "#ff9ecf");
         if (mode === "story") {
           const g = STORY[storyLevel].goal;
