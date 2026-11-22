@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Airplane Game - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- THE GAME -->
+  <section class="game-section">
+    <h2>Paper Airplane Game</h2>
+    <p class="game-help">Click, tap, or press <strong>Space</strong> to fly up. Don't hit the comic book stacks!</p>
+
+    <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
+    <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
+
+    <p class="game-help">Like the game? <a href="airplanes.html">Get a real paper airplane</a> from HDBOC!</p>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <!-- JAVASCRIPT: the whole game -->
+  <script>
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");   // ctx is our "pen" for drawing
+    const W = canvas.width;
+    const H = canvas.height;
+    const GROUND = H - 40;                 // where the floor starts
+
+    // ----- GAME SETTINGS (try changing these!) -----
+    const GRAVITY = 0.32;     // how fast the plane falls
+    const FLAP = -6.2;        // how hard each tap pushes the plane up
+    const GAP = 175;          // the space between the top and bottom stacks
+    const STACK_WIDTH = 64;   // how wide each comic book stack is
+    const SPAWN_EVERY = 95;   // how many frames between new stacks
+
+    // Comic book colors for the stacks
+    const BOOK_COLORS = ["#d33a2c", "#2f55a0", "#f2c230", "#8be04a", "#f2862a"];
+
+    // ----- THE GAME'S MEMORY -----
+    let state = "start";      // "start", "playing", or "over"
+    let plane, stacks, clouds, score, frame, speed;
+    let best = 0;
+    try { best = Number(localStorage.getItem("hdboc-best")) || 0; } catch (e) { best = 0; }
+
+    function reset() {
+      plane = { x: 90, y: H / 2, vy: 0 };
+      stacks = [];
+      score = 0;
+      frame = 0;
+      speed = 2.4;
+      clouds = [
+        { x: 60, y: 90, s: 1 }, { x: 260, y: 160, s: 0.7 }, { x: 380, y: 60, s: 0.9 }
+      ];
+    }
+
+    // Makes a new pair of stacks with the gap at a random height
+    function addStack() {
+      const gapTop = 80 + Math.random() * (GROUND - GAP - 160);
+      // Each stack gets its own random book colors
+      const colors = [];
+      for (let i = 0; i < 20; i++) colors.push(BOOK_COLORS[Math.floor(Math.random() * BOOK_COLORS.length)]);
+      stacks.push({ x: W, gapTop: gapTop, colors: colors, scored: false });
+    }
+
+    // What happens when you click, tap, or press space
+    function flap() {
+      if (state === "start") {
+        reset();
+        state = "playing";
+      } else if (state === "over") {
+        if (frame > 30) { reset(); state = "playing"; }   // wait a moment so you don't restart by accident
+        return;
+      }
+      plane.vy = FLAP;
+    }
+
+    // ----- UPDATE: move everything one step -----
+    function update() {
+      frame++;
+      // Clouds always drift, even on the start screen
+      clouds.forEach(function (c) {
+        c.x -= 0.4 * c.s;
+        if (c.x < -80) { c.x = W + 40; c.y = 40 + Math.random() * 180; }
+      });
+
+      if (state !== "playing") return;
+
+      // Gravity pulls the plane down a little more every frame
+      plane.vy += GRAVITY;
+      plane.y += plane.vy;
+
+      // New stacks, and the game gets a tiny bit faster over time
+      if (frame % SPAWN_EVERY === 0) addStack();
+      speed = 2.4 + score * 0.04;
+
+      stacks.forEach(function (s) {
+        s.x -= speed;
+        // You get a point once you pass a stack
+        if (!s.scored && s.x + STACK_WIDTH < plane.x) {
+          s.scored = true;
+          score++;
+        }
+      });
+      stacks = stacks.filter(function (s) { return s.x > -STACK_WIDTH; });
+
+      // Crash checks: the floor, the ceiling, or a stack
+      if (plane.y + 10 > GROUND || plane.y - 10 < 0) return crash();
+      for (const s of stacks) {
+        const inStackX = plane.x + 16 > s.x && plane.x - 16 < s.x + STACK_WIDTH;
+        const inGap = plane.y - 8 > s.gapTop && plane.y + 8 < s.gapTop + GAP;
+        if (inStackX && !inGap) return crash();
+      }
+    }
+
+    function crash() {
+      state = "over";
+      frame = 0;
+      if (score > best) {
+        best = score;
+        try { localStorage.setItem("hdboc-best", String(best)); } catch (e) {}
+      }
+    }
+
+    // ----- DRAW: paint the picture for this frame -----
+    function drawBackground() {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#7cc4f2");
+      sky.addColorStop(1, "#d6effc");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      // Fluffy clouds made of 3 circles each
+      ctx.fillStyle = "#ffffff";
+      clouds.forEach(function (c) {
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 22 * c.s, 0, Math.PI * 2);
+        ctx.arc(c.x + 24 * c.s, c.y - 10 * c.s, 26 * c.s, 0, Math.PI * 2);
+        ctx.arc(c.x + 50 * c.s, c.y, 20 * c.s, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // The ground
+      ctx.fillStyle = "#4f9a3a";
+      ctx.fillRect(0, GROUND, W, H - GROUND);
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, GROUND, W, 4);
+    }
+
+    // One stack of comic books, from y1 down to y2
+    function drawBooks(x, y1, y2, colors) {
+      const bookH = 22;
+      let i = 0;
+      for (let y = y1; y < y2; y += bookH) {
+        const h = Math.min(bookH, y2 - y);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(x, y, STACK_WIDTH, h);
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(x, y, STACK_WIDTH, h);
+        // a little white "title" stripe on each book's spine
+        if (h > 12) {
+          ctx.fillStyle = "rgba(255,255,255,0.7)";
+          ctx.fillRect(x + 12, y + h / 2 - 2, STACK_WIDTH - 24, 4);
+        }
+        i++;
+      }
+    }
+
+    function drawStacks() {
+      stacks.forEach(function (s) {
+        drawBooks(s.x, 0, s.gapTop, s.colors);                       // top stack
+        drawBooks(s.x, s.gapTop + GAP, GROUND, s.colors.slice(5));   // bottom stack
+      });
+    }
+
+    function drawPlane() {
+      ctx.save();
+      ctx.translate(plane.x, plane.y);
+      // Tilt the plane up when rising, down when falling
+      ctx.rotate(Math.max(-0.5, Math.min(0.9, plane.vy * 0.07)));
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#111";
+      // main wing
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(22, 0); ctx.lineTo(-20, -12); ctx.lineTo(-10, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      // bottom fold
+      ctx.fillStyle = "#c9d6e8";
+      ctx.beginPath();
+      ctx.moveTo(22, 0); ctx.lineTo(-10, 0); ctx.lineTo(-16, 12); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Big text with a black outline, like a comic
+    function comicText(text, x, y, size, color) {
+      ctx.font = "bold " + size + "px 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineWidth = Math.max(4, size / 6);
+      ctx.strokeStyle = "#111";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    }
+
+    function draw() {
+      drawBackground();
+      drawStacks();
+      drawPlane();
+
+      if (state === "playing") {
+        comicText(String(score), W / 2, 70, 52, "#ffffff");
+      } else if (state === "start") {
+        comicText("HDBOC", W / 2, 170, 56, "#f2c230");
+        comicText("Paper Airplane", W / 2, 220, 34, "#ffffff");
+        comicText("Tap or press Space", W / 2, 400, 24, "#ffffff");
+        comicText("Best: " + best, W / 2, 440, 22, "#ffffff");
+      } else {
+        comicText("CRASH!", W / 2, 200, 60, "#d33a2c");
+        comicText("Score: " + score, W / 2, 270, 32, "#ffffff");
+        comicText("Best: " + best, W / 2, 310, 26, "#f2c230");
+        if (frame > 30) comicText("Tap to play again", W / 2, 400, 24, "#ffffff");
+      }
+    }
+
+    // ----- THE GAME LOOP: update, draw, repeat (about 60 times a second) -----
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ----- CONTROLS -----
+    canvas.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      flap();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.code === "Space" || e.code === "ArrowUp") {
+        e.preventDefault();   // stops the page from scrolling when you press space
+        flap();
+      }
+    });
+
+    reset();
+    loop();
+  </script>
+
+</body>
+</html>

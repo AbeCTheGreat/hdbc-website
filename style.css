@@ -561,3 +561,24 @@ a.card:hover {
   .fan-2 { left: 70px; }
   .fan-3 { left: 140px; }
 }
+
+/* ===== PAPER AIRPLANE GAME ===== */
+.game-section {
+  text-align: center;
+}
+.game-help {
+  color: var(--gray);
+  font-size: 17px;
+}
+#game {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  margin: 16px auto;
+  border: 4px solid #111;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  touch-action: manipulation;
+  cursor: pointer;
+}
