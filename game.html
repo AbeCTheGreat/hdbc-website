@@ -29,7 +29,27 @@
   <!-- THE GAME -->
   <section class="game-section">
     <h2>Paper Airplane Game</h2>
-    <p class="game-help">Click, tap, or press <strong>Space</strong> to fly up. Don't hit the comic book stacks!</p>
+    <p class="game-help">Pick your plane, then click, tap, or press <strong>Space</strong> to fly up. Don't hit the comic book stacks!</p>
+
+    <!-- PLANE PICKER: each plane has its own superpower -->
+    <div class="plane-picker" role="radiogroup" aria-label="Choose your plane">
+      <button type="button" class="plane-choice" data-plane="original" role="radio">
+        <strong>The Original</strong>
+        <span>Classic. Normal speed, normal everything.</span>
+      </button>
+      <button type="button" class="plane-choice" data-plane="looper" role="radio">
+        <strong>Looper</strong>
+        <span>🔄 Loop-the-loop: does a full loop every time you tap!</span>
+      </button>
+      <button type="button" class="plane-choice" data-plane="skyfin" role="radio">
+        <strong>Sky Fin</strong>
+        <span>🪽 Fins: glides and falls slower. Easier to control!</span>
+      </button>
+      <button type="button" class="plane-choice" data-plane="skyfinplus" role="radio">
+        <strong>Sky Fin+</strong>
+        <span>⚡ Aerodynamic: tiny and super fast. 2 points per stack!</span>
+      </button>
+    </div>
 
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
     <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
@@ -51,36 +71,110 @@
     const GROUND = H - 40;                 // where the floor starts
 
     // ----- GAME SETTINGS (try changing these!) -----
-    const GRAVITY = 0.32;     // how fast the plane falls
-    const FLAP = -6.2;        // how hard each tap pushes the plane up
     const GAP = 175;          // the space between the top and bottom stacks
     const STACK_WIDTH = 64;   // how wide each comic book stack is
     const SPAWN_EVERY = 95;   // how many frames between new stacks
+
+    // ----- THE PLANES: each one has its own stats and superpower -----
+    //   gravity  = how fast it falls          flap   = how hard a tap pushes it up
+    //   speed    = how fast the stacks come   size   = how big its crash box is
+    //   points   = points per stack           loops  = does a loop-the-loop on every tap
+    const PLANES = {
+      original:   { name: "The Original", gravity: 0.32, flap: -6.2, speed: 2.4, size: 1.0,  points: 1, loops: false,
+                    wing: "#ffffff", fold: "#c9d6e8" },
+      looper:     { name: "Looper",       gravity: 0.32, flap: -6.2, speed: 2.4, size: 1.0,  points: 1, loops: true,
+                    wing: "#ffe08a", fold: "#f2c230" },
+      skyfin:     { name: "Sky Fin",      gravity: 0.24, flap: -5.4, speed: 2.4, size: 1.0,  points: 1, loops: false,
+                    wing: "#bcd7ff", fold: "#2f55a0" },
+      skyfinplus: { name: "Sky Fin+",     gravity: 0.34, flap: -6.4, speed: 3.1, size: 0.65, points: 2, loops: false,
+                    wing: "#ffd0c9", fold: "#d33a2c" }
+    };
 
     // Comic book colors for the stacks
     const BOOK_COLORS = ["#d33a2c", "#2f55a0", "#f2c230", "#8be04a", "#f2862a"];
 
     // ----- THE GAME'S MEMORY -----
     let state = "start";      // "start", "playing", or "over"
-    let plane, stacks, clouds, score, frame, speed;
-    let best = 0;
-    try { best = Number(localStorage.getItem("hdboc-best")) || 0; } catch (e) { best = 0; }
+    let chosen = "original";  // which plane you picked
+    let plane, stacks, clouds, score, frame, speed, loopTimer, unlockTimer, unlockedName;
+
+    // Best score for EACH plane, saved in the browser
+    let bests = {};
+    try { bests = JSON.parse(localStorage.getItem("hdboc-bests")) || {}; } catch (e) { bests = {}; }
+    // Keep your old record from before there were different planes (it was with The Original)
+    try {
+      const oldBest = Number(localStorage.getItem("hdboc-best")) || 0;
+      if (oldBest > (bests.original || 0)) bests.original = oldBest;
+    } catch (e) {}
+    try { chosen = localStorage.getItem("hdboc-plane") || "original"; } catch (e) {}
+
+
+    function P() { return PLANES[chosen]; }   // the plane you're flying right now
+
+    // ----- UNLOCKING PLANES -----
+    // You start with The Original. Score 10 in one game with a plane
+    // to unlock the next one in this list.
+    const ORDER = ["original", "looper", "skyfin", "skyfinplus"];
+    function isUnlocked(id) {
+      const i = ORDER.indexOf(id);
+      return i === 0 || (bests[ORDER[i - 1]] || 0) >= 10;
+    }
+    function nextLocked() {
+      const i = ORDER.indexOf(chosen);
+      return i < ORDER.length - 1 && !isUnlocked(ORDER[i + 1]) ? PLANES[ORDER[i + 1]] : null;
+    }
+    function best() { return bests[chosen] || 0; }
 
     function reset() {
-      plane = { x: 90, y: H / 2, vy: 0 };
+      plane = { x: 90, y: H / 2, vy: 0, spin: 0 };
       stacks = [];
       score = 0;
       frame = 0;
-      speed = 2.4;
+      speed = P().speed;
+      unlockTimer = 0;
+      loopTimer = 0;
       clouds = [
         { x: 60, y: 90, s: 1 }, { x: 260, y: 160, s: 0.7 }, { x: 380, y: 60, s: 0.9 }
       ];
     }
 
+    // ----- PLANE PICKER BUTTONS -----
+    const choices = document.querySelectorAll(".plane-choice");
+    function showChosen() {
+      choices.forEach(function (b) {
+        const on = b.dataset.plane === chosen;
+        b.classList.toggle("selected", on);
+        b.setAttribute("aria-checked", on ? "true" : "false");
+        // Locked planes are grayed out with a note saying how to unlock them
+        const locked = !isUnlocked(b.dataset.plane);
+        b.classList.toggle("locked", locked);
+        b.setAttribute("aria-disabled", locked ? "true" : "false");
+        let note = b.querySelector(".lock-note");
+        if (!note) {
+          note = document.createElement("em");
+          note.className = "lock-note";
+          b.appendChild(note);
+        }
+        const prev = ORDER[ORDER.indexOf(b.dataset.plane) - 1];
+        note.textContent = locked ? "🔒 Score 10 with " + PLANES[prev].name + " to unlock" : "";
+        note.hidden = !locked;
+      });
+    }
+    choices.forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (state === "playing") return;   // no switching planes mid-flight!
+        if (!isUnlocked(b.dataset.plane)) return;   // still locked!
+        chosen = b.dataset.plane;
+        try { localStorage.setItem("hdboc-plane", chosen); } catch (e) {}
+        showChosen();
+        reset();
+        state = "start";
+      });
+    });
+
     // Makes a new pair of stacks with the gap at a random height
     function addStack() {
       const gapTop = 80 + Math.random() * (GROUND - GAP - 160);
-      // Each stack gets its own random book colors
       const colors = [];
       for (let i = 0; i < 20; i++) colors.push(BOOK_COLORS[Math.floor(Math.random() * BOOK_COLORS.length)]);
       stacks.push({ x: W, gapTop: gapTop, colors: colors, scored: false });
@@ -95,13 +189,13 @@
         if (frame > 30) { reset(); state = "playing"; }   // wait a moment so you don't restart by accident
         return;
       }
-      plane.vy = FLAP;
+      plane.vy = P().flap;
+      if (P().loops) { loopTimer = 30; plane.spin = 0; }   // Looper: loop-the-loop!
     }
 
     // ----- UPDATE: move everything one step -----
     function update() {
       frame++;
-      // Clouds always drift, even on the start screen
       clouds.forEach(function (c) {
         c.x -= 0.4 * c.s;
         if (c.x < -80) { c.x = W + 40; c.y = 40 + Math.random() * 180; }
@@ -109,39 +203,59 @@
 
       if (state !== "playing") return;
 
-      // Gravity pulls the plane down a little more every frame
-      plane.vy += GRAVITY;
+      // Looper's loop-the-loop: one full spin
+      if (loopTimer > 0) {
+        loopTimer--;
+        plane.spin += (Math.PI * 2) / 30;
+      }
+      if (unlockTimer > 0) unlockTimer--;
+
+      plane.vy += P().gravity;
       plane.y += plane.vy;
 
-      // New stacks, and the game gets a tiny bit faster over time
       if (frame % SPAWN_EVERY === 0) addStack();
-      speed = 2.4 + score * 0.04;
+      speed = P().speed + score * 0.03;
 
       stacks.forEach(function (s) {
         s.x -= speed;
-        // You get a point once you pass a stack
         if (!s.scored && s.x + STACK_WIDTH < plane.x) {
           s.scored = true;
-          score++;
+          score += P().points;
+          checkUnlock();
         }
       });
       stacks = stacks.filter(function (s) { return s.x > -STACK_WIDTH; });
 
-      // Crash checks: the floor, the ceiling, or a stack
-      if (plane.y + 10 > GROUND || plane.y - 10 < 0) return crash();
+      // Crash checks (the crash box is smaller for Sky Fin+)
+      const hw = 16 * P().size;   // half width
+      const hh = 8 * P().size;    // half height
+      let hit = plane.y + 10 > GROUND || plane.y - 10 < 0;
       for (const s of stacks) {
-        const inStackX = plane.x + 16 > s.x && plane.x - 16 < s.x + STACK_WIDTH;
-        const inGap = plane.y - 8 > s.gapTop && plane.y + 8 < s.gapTop + GAP;
-        if (inStackX && !inGap) return crash();
+        const inStackX = plane.x + hw > s.x && plane.x - hw < s.x + STACK_WIDTH;
+        const inGap = plane.y - hh > s.gapTop && plane.y + hh < s.gapTop + GAP;
+        if (inStackX && !inGap) hit = true;
+      }
+      if (hit) crash();
+    }
+
+    // Did you just reach 10 points and unlock a new plane?
+    function checkUnlock() {
+      const next = nextLocked();
+      if (next && score >= 10) {
+        bests[chosen] = Math.max(best(), score);
+        try { localStorage.setItem("hdboc-bests", JSON.stringify(bests)); } catch (e) {}
+        unlockedName = next.name;
+        unlockTimer = 150;
+        showChosen();
       }
     }
 
     function crash() {
       state = "over";
       frame = 0;
-      if (score > best) {
-        best = score;
-        try { localStorage.setItem("hdboc-best", String(best)); } catch (e) {}
+      if (score > best()) {
+        bests[chosen] = score;
+        try { localStorage.setItem("hdboc-bests", JSON.stringify(bests)); } catch (e) {}
       }
     }
 
@@ -153,7 +267,6 @@
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, W, H);
 
-      // Fluffy clouds made of 3 circles each
       ctx.fillStyle = "#ffffff";
       clouds.forEach(function (c) {
         ctx.beginPath();
@@ -163,14 +276,12 @@
         ctx.fill();
       });
 
-      // The ground
       ctx.fillStyle = "#4f9a3a";
       ctx.fillRect(0, GROUND, W, H - GROUND);
       ctx.fillStyle = "#111";
       ctx.fillRect(0, GROUND, W, 4);
     }
 
-    // One stack of comic books, from y1 down to y2
     function drawBooks(x, y1, y2, colors) {
       const bookH = 22;
       let i = 0;
@@ -181,7 +292,6 @@
         ctx.strokeStyle = "#111";
         ctx.lineWidth = 3;
         ctx.strokeRect(x, y, STACK_WIDTH, h);
-        // a little white "title" stripe on each book's spine
         if (h > 12) {
           ctx.fillStyle = "rgba(255,255,255,0.7)";
           ctx.fillRect(x + 12, y + h / 2 - 2, STACK_WIDTH - 24, 4);
@@ -192,33 +302,64 @@
 
     function drawStacks() {
       stacks.forEach(function (s) {
-        drawBooks(s.x, 0, s.gapTop, s.colors);                       // top stack
-        drawBooks(s.x, s.gapTop + GAP, GROUND, s.colors.slice(5));   // bottom stack
+        drawBooks(s.x, 0, s.gapTop, s.colors);
+        drawBooks(s.x, s.gapTop + GAP, GROUND, s.colors.slice(5));
       });
     }
 
-    function drawPlane() {
+    // Draws whichever plane you picked, at (x, y)
+    function drawPlaneShape(x, y, tilt, scale) {
+      const p = P();
       ctx.save();
-      ctx.translate(plane.x, plane.y);
-      // Tilt the plane up when rising, down when falling
-      ctx.rotate(Math.max(-0.5, Math.min(0.9, plane.vy * 0.07)));
+      ctx.translate(x, y);
+      ctx.rotate(tilt);
+      ctx.scale(scale, scale);
       ctx.lineJoin = "round";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3 / scale;
       ctx.strokeStyle = "#111";
-      // main wing
-      ctx.fillStyle = "#ffffff";
+
+      // Sky Fin and Sky Fin+ are longer and pointier
+      const nose = chosen === "skyfin" || chosen === "skyfinplus" ? 28 : 22;
+
+      ctx.fillStyle = p.wing;
       ctx.beginPath();
-      ctx.moveTo(22, 0); ctx.lineTo(-20, -12); ctx.lineTo(-10, 0); ctx.closePath();
+      ctx.moveTo(nose, 0); ctx.lineTo(-20, -12); ctx.lineTo(-10, 0); ctx.closePath();
       ctx.fill(); ctx.stroke();
-      // bottom fold
-      ctx.fillStyle = "#c9d6e8";
+
+      ctx.fillStyle = p.fold;
       ctx.beginPath();
-      ctx.moveTo(22, 0); ctx.lineTo(-10, 0); ctx.lineTo(-16, 12); ctx.closePath();
+      ctx.moveTo(nose, 0); ctx.lineTo(-10, 0); ctx.lineTo(-16, 12); ctx.closePath();
       ctx.fill(); ctx.stroke();
+
+      // The fins!
+      if (chosen === "skyfin" || chosen === "skyfinplus") {
+        ctx.fillStyle = p.fold;
+        ctx.beginPath();
+        ctx.moveTo(-14, -8); ctx.lineTo(-22, -20); ctx.lineTo(-8, -10); ctx.closePath();
+        ctx.fill(); ctx.stroke();
+      }
       ctx.restore();
     }
 
-    // Big text with a black outline, like a comic
+    function drawPlane() {
+      let tilt = Math.max(-0.5, Math.min(0.9, plane.vy * 0.07));
+      if (loopTimer > 0) tilt = -plane.spin;   // spinning backwards = a loop-the-loop!
+      const scale = chosen === "skyfinplus" ? 0.75 : 1;
+      drawPlaneShape(plane.x, plane.y, tilt, scale);
+
+      // Speed lines behind Sky Fin+
+      if (chosen === "skyfinplus" && state === "playing") {
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(plane.x - 22 - (frame * 3 + i * 9) % 18, plane.y - 6 + i * 6);
+          ctx.lineTo(plane.x - 40 - (frame * 3 + i * 9) % 18, plane.y - 6 + i * 6);
+          ctx.stroke();
+        }
+      }
+    }
+
     function comicText(text, x, y, size, color) {
       ctx.font = "bold " + size + "px 'Segoe UI', Arial, sans-serif";
       ctx.textAlign = "center";
@@ -232,20 +373,29 @@
     function draw() {
       drawBackground();
       drawStacks();
-      drawPlane();
+      if (state !== "start") drawPlane();
 
       if (state === "playing") {
         comicText(String(score), W / 2, 70, 52, "#ffffff");
+        if (unlockTimer > 0) {
+          comicText("NEW PLANE UNLOCKED!", W / 2, 120, 26, "#f2c230");
+          comicText(unlockedName, W / 2, 152, 26, "#ffffff");
+        }
       } else if (state === "start") {
-        comicText("HDBOC", W / 2, 170, 56, "#f2c230");
-        comicText("Paper Airplane", W / 2, 220, 34, "#ffffff");
-        comicText("Tap or press Space", W / 2, 400, 24, "#ffffff");
-        comicText("Best: " + best, W / 2, 440, 22, "#ffffff");
+        comicText("HDBOC", W / 2, 150, 56, "#f2c230");
+        comicText("Paper Airplane", W / 2, 200, 34, "#ffffff");
+        drawPlaneShape(W / 2, 290, -0.15, 2.4);
+        comicText("Flying: " + P().name, W / 2, 380, 24, "#ffffff");
+        comicText("Tap or press Space", W / 2, 430, 24, "#ffffff");
+        comicText("Best: " + best(), W / 2, 470, 22, "#f2c230");
+        const next = nextLocked();
+        if (next) comicText("Score 10 to unlock " + next.name + "!", W / 2, 510, 18, "#ffffff");
       } else {
         comicText("CRASH!", W / 2, 200, 60, "#d33a2c");
         comicText("Score: " + score, W / 2, 270, 32, "#ffffff");
-        comicText("Best: " + best, W / 2, 310, 26, "#f2c230");
+        comicText("Best with " + P().name + ": " + best(), W / 2, 310, 22, "#f2c230");
         if (frame > 30) comicText("Tap to play again", W / 2, 400, 24, "#ffffff");
+        if (unlockedName && score >= 10) comicText("You unlocked " + unlockedName + "!", W / 2, 450, 22, "#f2c230");
       }
     }
 
@@ -262,12 +412,16 @@
       flap();
     });
     document.addEventListener("keydown", function (e) {
+      // Don't steal Space when you're on a plane button (Space presses the button)
+      if (e.target.closest && e.target.closest(".plane-choice")) return;
       if (e.code === "Space" || e.code === "ArrowUp") {
         e.preventDefault();   // stops the page from scrolling when you press space
         flap();
       }
     });
 
+    if (!PLANES[chosen] || !isUnlocked(chosen)) chosen = "original";
+    showChosen();
     reset();
     loop();
   </script>
