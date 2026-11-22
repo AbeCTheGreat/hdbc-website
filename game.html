@@ -55,7 +55,8 @@
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
     <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
 
-    <p class="game-help">🪙 Grab the gold coins for <strong>+1 bonus point</strong> each!</p>
+    <p class="game-help">🪙 Grab the gold coins for <strong>+1 bonus point</strong> each!<br>
+      Watch for rare power-ups: 🧲 <strong>Magnet</strong> pulls coins to you, ⏱️ <strong>Slow-Mo</strong> slows everything down.</p>
 
     <!-- HDBOC RECORDS: update these when the boss beats them! -->
     <div class="records">
@@ -113,6 +114,10 @@
     let state = "start";      // "start", "playing", or "over"
     let chosen = "original";  // which plane you picked
     let plane, stacks, coins, pops, clouds, score, frame, speed, loopTimer, unlockTimer, unlockedName;
+    let powerups, magnetTimer, slowTimer, spawnClock, stackCount;
+
+    // ----- POWER-UPS -----
+    const POWER_TIME = 300;   // how long a power-up lasts (300 frames = about 5 seconds)
 
     // Best score for EACH plane, saved in the browser
     let bests = {};
@@ -146,6 +151,11 @@
       stacks = [];
       coins = [];   // gold coins floating between the stacks
       pops = [];    // little "+1" signs when you grab a coin
+      powerups = [];    // rare magnets and slow-mo clocks
+      magnetTimer = 0;
+      slowTimer = 0;
+      spawnClock = 0;
+      stackCount = 0;
       score = 0;
       frame = 0;
       speed = P().speed;
@@ -231,12 +241,28 @@
       plane.vy += P().gravity;
       plane.y += plane.vy;
 
-      if (frame % SPAWN_EVERY === 0) addStack();
-      // Halfway between stacks, sometimes add a coin
-      if (frame % SPAWN_EVERY === Math.floor(SPAWN_EVERY / 2) && Math.random() < 0.7) {
-        coins.push({ x: W, y: 90 + Math.random() * (GROUND - 180) });
+      // Slow-mo makes the world move at half speed
+      const slow = slowTimer > 0 ? 0.5 : 1;
+      if (magnetTimer > 0) magnetTimer--;
+      if (slowTimer > 0) slowTimer--;
+
+      // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
+      spawnClock += slow;
+      if (spawnClock >= SPAWN_EVERY) {
+        spawnClock -= SPAWN_EVERY;
+        addStack();
+        stackCount++;
       }
-      speed = P().speed + score * 0.03;
+      // Halfway between stacks: usually a coin, but every so often a power-up!
+      if (spawnClock >= SPAWN_EVERY / 2 && spawnClock - slow < SPAWN_EVERY / 2) {
+        const y = 90 + Math.random() * (GROUND - 180);
+        if (stackCount % 6 === 5 && Math.random() < 0.8) {
+          powerups.push({ x: W, y: y, type: Math.random() < 0.5 ? "magnet" : "slow" });
+        } else if (Math.random() < 0.7) {
+          coins.push({ x: W, y: y });
+        }
+      }
+      speed = (P().speed + score * 0.03) * slow;
 
       stacks.forEach(function (s) {
         s.x -= speed;
@@ -251,6 +277,12 @@
       // COINS: move them, and grab any the plane touches (+1 point each)
       coins.forEach(function (c) {
         c.x -= speed;
+        // MAGNET: coins nearby fly toward the plane
+        if (magnetTimer > 0) {
+          const mx = plane.x - c.x, my = plane.y - c.y;
+          const dist = Math.sqrt(mx * mx + my * my);
+          if (dist < 220) { c.x += mx / dist * 7; c.y += my / dist * 7; }
+        }
         const dx = c.x - plane.x, dy = c.y - plane.y;
         if (!c.got && dx * dx + dy * dy < 24 * 24) {
           c.got = true;
@@ -260,6 +292,19 @@
         }
       });
       coins = coins.filter(function (c) { return !c.got && c.x > -20; });
+      // POWER-UPS: move them, and grab them
+      powerups.forEach(function (u) {
+        u.x -= speed;
+        const dx = u.x - plane.x, dy = u.y - plane.y;
+        if (!u.got && dx * dx + dy * dy < 28 * 28) {
+          u.got = true;
+          if (u.type === "magnet") magnetTimer = POWER_TIME;
+          else slowTimer = POWER_TIME;
+          pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : "SLOW-MO!" });
+        }
+      });
+      powerups = powerups.filter(function (u) { return !u.got && u.x > -30; });
+
       pops.forEach(function (p) { p.t--; p.y -= 1; });
       pops = pops.filter(function (p) { return p.t > 0; });
 
@@ -303,6 +348,10 @@
       sky.addColorStop(1, "#d6effc");
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, W, H);
+      if (state === "playing" && slowTimer > 0) {
+        ctx.fillStyle = "rgba(80, 60, 160, 0.18)";   // purple-ish tint during slow-mo
+        ctx.fillRect(0, 0, W, H);
+      }
 
       ctx.fillStyle = "#ffffff";
       clouds.forEach(function (c) {
@@ -379,6 +428,46 @@
     }
 
     // A gold HDBOC coin that bobs up and down
+    // Power-ups: a red magnet or a slow-mo clock, in a glowing bubble
+    function drawPowerups() {
+      powerups.forEach(function (u) {
+        const bob = Math.sin((frame + u.x) / 8) * 5;
+        const x = u.x, y = u.y + bob;
+        ctx.beginPath();
+        ctx.arc(x, y, 20, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.75)";
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#111";
+        ctx.stroke();
+        if (u.type === "magnet") {
+          // a U-shaped magnet
+          ctx.lineWidth = 7;
+          ctx.strokeStyle = "#d33a2c";
+          ctx.beginPath();
+          ctx.arc(x, y - 2, 8, 0, Math.PI);
+          ctx.moveTo(x - 8, y - 2); ctx.lineTo(x - 8, y - 10);
+          ctx.moveTo(x + 8, y - 2); ctx.lineTo(x + 8, y - 10);
+          ctx.stroke();
+          ctx.fillStyle = "#e8e4d8";
+          ctx.fillRect(x - 11.5, y - 14, 7, 5);
+          ctx.fillRect(x + 4.5, y - 14, 7, 5);
+        } else {
+          // a clock
+          ctx.beginPath();
+          ctx.arc(x, y, 11, 0, Math.PI * 2);
+          ctx.fillStyle = "#2f55a0";
+          ctx.fill();
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.moveTo(x, y); ctx.lineTo(x, y - 7);
+          ctx.moveTo(x, y); ctx.lineTo(x + 5, y + 2);
+          ctx.stroke();
+        }
+      });
+    }
+
     function drawCoins() {
       coins.forEach(function (c) {
         const bob = Math.sin((frame + c.x) / 10) * 4;
@@ -394,7 +483,7 @@
         ctx.textAlign = "center";
         ctx.fillText("H", c.x, c.y + bob + 5);
       });
-      pops.forEach(function (p) { comicText("+1", p.x, p.y, 22, "#f2c230"); });
+      pops.forEach(function (p) { comicText(p.text || "+1", p.x, p.y, p.text ? 20 : 22, "#f2c230"); });
     }
 
     function drawPlane() {
@@ -429,11 +518,16 @@
     function draw() {
       drawBackground();
       drawStacks();
-      if (state === "playing") drawCoins();
+      if (state === "playing") { drawCoins(); drawPowerups(); }
       if (state !== "start") drawPlane();
 
       if (state === "playing") {
         comicText(String(score), W / 2, 70, 52, "#ffffff");
+        // Which power-ups are on right now
+        const active = [];
+        if (magnetTimer > 0) active.push("🧲 " + Math.ceil(magnetTimer / 60));
+        if (slowTimer > 0) active.push("⏱️ " + Math.ceil(slowTimer / 60));
+        if (active.length) comicText(active.join("   "), W / 2, H - 60, 20, "#ffffff");
         if (unlockTimer > 0) {
           comicText("NEW PLANE UNLOCKED!", W / 2, 120, 26, "#f2c230");
           comicText(unlockedName, W / 2, 152, 26, "#ffffff");
