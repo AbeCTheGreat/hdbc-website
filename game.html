@@ -8,6 +8,8 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="favicon.png">
   <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
 </head>
 
 <body>
@@ -80,7 +82,14 @@
       ⏸️ Press <strong>P</strong> or the Pause button to take a break.<br>
       🌦️ Watch the weather: rain, wind, and thunderstorms at night!<br>
       👻 Your <strong>ghost</strong> replays your best run. Race it!<br>
-      🔥 Think you can reach <strong>150</strong>? Someone's waiting for you there...</p>
+      🔥 Think you can reach <strong>150</strong>? Someone's waiting for you there...<br>
+      🤫 And if you make it to <strong>200</strong>... you'll find a secret.</p>
+
+    <!-- MORE GAMES -->
+    <p class="more-games">
+      <a class="button" href="throw.html">🎯 Throwing Contest</a>
+      <a class="button" href="two-player.html">👥 2-Player Mode</a>
+    </p>
 
     <!-- COIN SHOP: spend the coins you grab in the game. The script fills it in. -->
     <div class="shop">
@@ -114,6 +123,7 @@
 
   <!-- BOTTOM BAR -->
   <footer>
+    <p class="footer-links"><a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
     &copy; 2026 HDBOC Paper Products
   </footer>
 
@@ -160,6 +170,7 @@
     let antis, fireballs, antisDone;   // the PrayingAntis boss fight (at 150 points)
     let weather, weatherTimer, windDir, rainDrops, bolt, boltsDodged, flash;   // the weather
     let ghostRun, ghostData, ghostPassed;   // the ghost plane
+    let space = 0;   // the secret level: 0 = not yet, 1 = all the way in OUTER SPACE
 
     // ----- SOUND EFFECTS -----
     // We don't use sound files. The computer makes the sounds itself with the
@@ -306,7 +317,10 @@
       { id: "skin",      icon: "🎨", name: "Fashion Flyer",  how: "Fly with a new skin" },
       { id: "antis",     icon: "🦗", name: "Bug Off!",       how: "Survive PrayingAntis" },
       { id: "shopper",   icon: "🛒", name: "Big Spender",    how: "Buy something in the Coin Shop" },
-      { id: "storm",     icon: "⛈️", name: "Storm Chaser",   how: "Dodge 3 lightning bolts in one game" }
+      { id: "storm",     icon: "⛈️", name: "Storm Chaser",   how: "Dodge 3 lightning bolts in one game" },
+      { id: "space",     icon: "🚀", name: "Space Cadet",    how: "Find the secret level" },
+      { id: "versus",    icon: "👥", name: "Head to Head",   how: "Play a 2-player game" },
+      { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Throw 100 feet in the Throwing Contest" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -691,6 +705,7 @@
       ghostRun = [];     // where you fly this game (for next time's ghost)
       ghostData = loadGhost();
       ghostPassed = false;
+      space = 0;
       score = 0;
       frame = 0;
       speed = P().speed;
@@ -775,6 +790,18 @@
         plane.spin += (Math.PI * 2) / 30;
       }
       if (unlockTimer > 0) unlockTimer--;
+      // SECRET LEVEL: at 200 points you fly right up into OUTER SPACE!
+      if (score >= 200 && space === 0) {
+        space = 0.001;
+        weather = "clear";
+        rainDrops = [];
+        bolt = null;
+        play("unlock");
+        toasts.push({ text: "🚀 SECRET LEVEL: OUTER SPACE!", t: 180 });
+        toasts.push({ text: "Less gravity up here...", t: 180 });
+        earn("space");
+      }
+      if (space > 0 && space < 1) space = Math.min(1, space + 1 / 120);
       // After 20 points, the sky slowly turns to night
       if (score >= 20 && night < 1) {
         if (night === 0) play("night");
@@ -788,7 +815,7 @@
       if (weatherTimer <= 0) {
         weatherTimer = 500 + Math.random() * 300;
         const r = Math.random();
-        if (bossHere || r < 0.4) weather = "clear";
+        if (bossHere || space > 0 || r < 0.4) weather = "clear";
         else if (r < 0.7) weather = night > 0.5 ? "storm" : "rain";
         else weather = "wind";
         if (weather === "wind") {
@@ -806,7 +833,7 @@
       const windPush = weather === "wind" && !bossHere ? windDir * 0.1 : 0;
       const rainPush = rainy ? 0.03 : 0;   // wet paper is heavier!
 
-      plane.vy += P().gravity + windPush + rainPush;
+      plane.vy += (P().gravity + windPush + rainPush) * (space >= 1 ? 0.8 : 1);   // less gravity in space!
 
       // Raindrops falling
       if (rainy && rainDrops.length < 90) rainDrops.push({ x: Math.random() * (W + 100), y: -10, s: 7 + Math.random() * 4 });
@@ -1201,6 +1228,52 @@
       ctx.fillRect(0, GROUND, W, H - GROUND);
       ctx.fillStyle = "#111";
       ctx.fillRect(0, GROUND, W, 4);
+      if (space > 0) drawSpace();
+    }
+
+    // OUTER SPACE: purple-black sky, zooming stars, planets, and a moon-rock floor
+    function drawSpace() {
+      ctx.save();
+      ctx.globalAlpha = space;
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#05010f");
+      sky.addColorStop(1, "#2a0f4a");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+      // stars zoom past (fast ones are closer)
+      for (let i = 0; i < STARS.length; i++) {
+        const st = STARS[i];
+        const sp = st.s === 3 ? 1.5 : 0.6;
+        const x = ((st.x - frame * sp) % W + W) % W;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(x, st.y, st.s, st.s);
+      }
+      // a ringed planet
+      const px = ((300 - frame * 0.15) % (W + 200) + W + 200) % (W + 200) - 100;
+      ctx.fillStyle = "#f2862a";
+      ctx.beginPath(); ctx.arc(px, 130, 38, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#d8601a";
+      ctx.fillRect(px - 36, 120, 72, 6);
+      ctx.strokeStyle = "#f2c230";
+      ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.ellipse(px, 130, 62, 14, -0.3, 0, Math.PI * 2); ctx.stroke();
+      // Earth, far away (that's where you came from!)
+      ctx.fillStyle = "#2f7fd3";
+      ctx.beginPath(); ctx.arc(70, 430, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#4f9a3a";
+      ctx.beginPath(); ctx.ellipse(62, 424, 10, 7, 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(80, 440, 7, 5, 0, 0, Math.PI * 2); ctx.fill();
+      // moon-rock floor with craters
+      ctx.fillStyle = "#8a8a99";
+      ctx.fillRect(0, GROUND, W, H - GROUND);
+      ctx.fillStyle = "#6e6e7d";
+      for (let i = 0; i < 6; i++) {
+        const cx = ((i * 90 - frame * 2) % (W + 60) + W + 60) % (W + 60) - 30;
+        ctx.beginPath(); ctx.ellipse(cx, GROUND + 20, 18, 6, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, GROUND, W, 4);
+      ctx.restore();
     }
 
     function drawBooks(x, y1, y2, colors) {
@@ -1208,12 +1281,16 @@
       let i = 0;
       for (let y = y1; y < y2; y += bookH) {
         const h = Math.min(bookH, y2 - y);
-        ctx.fillStyle = colors[i % colors.length];
+        const rock = space > 0.5;   // in space, the book stacks become space rocks!
+        ctx.fillStyle = rock ? ["#7a7a88", "#5f5f6e", "#8f8f9e"][i % 3] : colors[i % colors.length];
         ctx.fillRect(x, y, STACK_WIDTH, h);
         ctx.strokeStyle = "#111";
         ctx.lineWidth = 3;
         ctx.strokeRect(x, y, STACK_WIDTH, h);
-        if (h > 12) {
+        if (h > 12 && rock) {
+          ctx.fillStyle = "rgba(40,40,50,0.5)";   // craters
+          ctx.beginPath(); ctx.arc(x + 18 + (i % 2) * 24, y + h / 2, 5, 0, Math.PI * 2); ctx.fill();
+        } else if (h > 12) {
           ctx.fillStyle = "rgba(255,255,255,0.7)";
           ctx.fillRect(x + 12, y + h / 2 - 2, STACK_WIDTH - 24, 4);
         }

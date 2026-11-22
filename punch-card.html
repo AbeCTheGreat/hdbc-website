@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Punch Cards - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR (hidden when you print) -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- PUNCH CARDS: print this page, cut out the cards, and hand them out! -->
+  <section class="punch-section">
+    <div class="no-print">
+      <h2>🎟️ Plane Punch Cards</h2>
+      <p class="peek-intro">Print this page, cut out the 8 cards, and give one to each customer.
+        Punch a hole (or draw an X) for every plane they buy. After 5, their 6th plane is free!</p>
+      <p class="quiz-teaser"><button type="button" class="button print-button" onclick="window.print()">🖨️ Print the cards</button></p>
+    </div>
+
+    <!-- The script below makes 8 copies of this card -->
+    <div class="punch-sheet" id="sheet">
+      <div class="punch-card">
+        <div class="punch-top">
+          <img src="logo.png" alt="HDBOC">
+          <div>
+            <strong>Plane Punch Card</strong>
+            <span>Buy 5 planes, get your 6th plane FREE!</span>
+          </div>
+        </div>
+        <div class="punch-holes">
+          <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+          <span class="free">FREE</span>
+        </div>
+        <div class="punch-name">Name: <span></span></div>
+        <div class="punch-site">hdbcpaper.com</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOTTOM BAR (hidden when you print) -->
+  <footer>
+    <p class="footer-links"><a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // Copy the card so there are 8 on the page
+    const sheet = document.getElementById("sheet");
+    const card = sheet.querySelector(".punch-card");
+    for (let i = 1; i < 8; i++) sheet.appendChild(card.cloneNode(true));
+  </script>
+
+</body>
+</html>

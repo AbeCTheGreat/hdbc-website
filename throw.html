@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Throwing Contest - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- THROWING CONTEST -->
+  <section class="game-section">
+    <a class="back" href="game.html">&larr; Back to the Paper Airplane Game</a>
+    <h2>🎯 Throwing Contest</h2>
+    <p class="game-help">How far can you throw? Pick a plane, then click, tap, or press <strong>Space</strong> twice:
+      once to pick the <strong>angle</strong>, once to pick the <strong>power</strong>.</p>
+
+    <!-- PLANE PICKER -->
+    <div class="plane-picker" role="radiogroup" aria-label="Choose your plane">
+      <button type="button" class="plane-choice" data-plane="original" role="radio">
+        <strong>The Original</strong>
+        <span>A good all-around flyer.</span>
+      </button>
+      <button type="button" class="plane-choice" data-plane="looper" role="radio">
+        <strong>Looper</strong>
+        <span>🔄 Thrown upside down and underhand. Does loops!</span>
+      </button>
+      <button type="button" class="plane-choice" data-plane="skyfin" role="radio">
+        <strong>Sky Fin</strong>
+        <span>🪽 The best glider. Can go really far.</span>
+      </button>
+      <button type="button" class="plane-choice" data-plane="skyfinplus" role="radio">
+        <strong>Sky Fin+</strong>
+        <span>⚡ Super fast. Throw it hard!</span>
+      </button>
+    </div>
+
+    <canvas id="field" width="800" height="360" aria-label="Throwing contest field"></canvas>
+
+    <!-- YOUR BEST THROWS (the script fills this in) -->
+    <div class="records">
+      <h3>📏 Your Best Throws</h3>
+      <table class="records-table" id="throw-bests"></table>
+    </div>
+
+    <p class="game-help">Tip: just like real paper planes, throwing super hard isn't always best. Try different angles!
+      <br>Want to throw a real one? <a href="airplanes.html">Get an HDBOC plane</a> and read the <a href="tips.html">flying tips</a>.</p>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <!-- JAVASCRIPT: the throwing contest -->
+  <script>
+    const canvas = document.getElementById("field");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    const GROUND = 320;      // where the grass starts on the screen
+    const SCALE = 6;         // 1 foot = 6 pixels
+    const GRAVITY = 32;      // feet per second, per second (real gravity!)
+
+    // ----- HOW EACH PLANE FLIES -----
+    //   lift = how much the wings hold it up     drag = how much the air slows it down
+    //   maxLift = the most lift it can make      loop = how tight its loop-the-loops are (Looper only)
+    const PLANES = {
+      original:   { name: "The Original", lift: 0.08,  drag: 0.016, maxLift: 1.5,  wing: "#ffffff", fold: "#c9d6e8" },
+      looper:     { name: "Looper",       lift: 0.08,  drag: 0.018, maxLift: 1.5,  wing: "#ffe08a", fold: "#f2c230",
+                    loop: 6, loopSpeed: 13 },
+      skyfin:     { name: "Sky Fin",      lift: 0.085, drag: 0.011, maxLift: 1.35, wing: "#bcd7ff", fold: "#2f55a0", fins: true },
+      skyfinplus: { name: "Sky Fin+",     lift: 0.055, drag: 0.008, maxLift: 1.25, wing: "#ffd0c9", fold: "#d33a2c", fins: true }
+    };
+
+    let chosen = "original";
+    try { if (PLANES[localStorage.getItem("hdboc-throw-plane")]) chosen = localStorage.getItem("hdboc-throw-plane"); } catch (e) {}
+    let bests = {};
+    try { bests = JSON.parse(localStorage.getItem("hdboc-throw-bests")) || {}; } catch (e) { bests = {}; }
+
+    // ----- THE CONTEST'S MEMORY -----
+    let step = "angle";   // "angle" -> "power" -> "flying" -> "landed"
+    let angle = 0, power = 0, meterTime = 0;
+    let plane, trail, loops, turned, result, newRecord, camX, frame = 0;
+
+    function ready() {
+      step = "angle";
+      meterTime = 0;
+      plane = { x: 0, y: 5, vx: 0, vy: 0 };   // in feet; you throw from 5 feet up
+      trail = [];
+      loops = 0;
+      turned = 0;
+      camX = 0;
+      result = 0;
+      newRecord = false;
+    }
+
+    // ----- PLANE PICKER -----
+    const choices = document.querySelectorAll(".plane-choice");
+    function showChosen() {
+      choices.forEach(function (b) {
+        const on = b.dataset.plane === chosen;
+        b.classList.toggle("selected", on);
+        b.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
+    choices.forEach(function (b) {
+      b.addEventListener("click", function () {
+        if (step === "flying") return;
+        chosen = b.dataset.plane;
+        try { localStorage.setItem("hdboc-throw-plane", chosen); } catch (e) {}
+        showChosen();
+        ready();
+      });
+    });
+
+    // ----- BEST THROWS TABLE -----
+    function showBests() {
+      const table = document.getElementById("throw-bests");
+      table.innerHTML = "<tr><th>Plane</th><th>Best</th></tr>";
+      Object.keys(PLANES).forEach(function (id) {
+        const row = document.createElement("tr");
+        const a = document.createElement("td");
+        a.textContent = PLANES[id].name;
+        const b = document.createElement("td");
+        b.textContent = bests[id] ? bests[id] + " ft" : "-";
+        row.append(a, b);
+        table.appendChild(row);
+      });
+    }
+
+    // Gives you a badge in the main game's trophy shelf
+    function earnBadge(id) {
+      try {
+        const earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {};
+        if (!earned[id]) {
+          earned[id] = true;
+          localStorage.setItem("hdboc-badges", JSON.stringify(earned));
+          return true;
+        }
+      } catch (e) {}
+      return false;
+    }
+    let badgeMessage = "";
+
+    // ----- CLICK / TAP / SPACE -----
+    function press() {
+      if (step === "angle") {
+        step = "power";
+        meterTime = 0;
+      } else if (step === "power") {
+        // THROW IT!
+        const speed = 15 + 30 * power;            // 15 to 45 feet per second
+        const a = angle * Math.PI / 180;
+        plane.vx = speed * Math.cos(a);
+        plane.vy = speed * Math.sin(a);
+        step = "flying";
+      } else if (step === "landed" && frame > 30) {
+        ready();
+      }
+    }
+    canvas.addEventListener("pointerdown", function (e) { e.preventDefault(); press(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.target.closest && e.target.closest("button, a, input")) return;
+      if (e.code === "Space") { e.preventDefault(); press(); }
+    });
+
+    // ----- UPDATE: move everything one step (60 times a second) -----
+    function update() {
+      frame++;
+      const dt = 1 / 60;
+      if (step === "angle") {
+        meterTime += dt;
+        angle = 25 + 30 * Math.sin(meterTime * 2.2);   // swings between -5 and 55 degrees
+      } else if (step === "power") {
+        meterTime += dt;
+        power = (1 - Math.cos(meterTime * 3)) / 2;      // goes 0 -> 1 -> 0 ...
+      } else if (step === "flying") {
+        const p = PLANES[chosen];
+        const v = Math.hypot(plane.vx, plane.vy);
+        // LIFT pushes sideways to the direction you're flying; DRAG pushes backwards
+        const lift = Math.min(p.lift * v * v, p.maxLift * GRAVITY);
+        const ax = -p.drag * v * plane.vx + lift * (-plane.vy / v);
+        const ay = -GRAVITY - p.drag * v * plane.vy + lift * (plane.vx / v);
+        plane.vx += ax * dt;
+        plane.vy += ay * dt;
+        // The Looper turns itself in circles while it's going fast enough
+        if (p.loop && v > p.loopSpeed) {
+          const turn = v / p.loop * dt;
+          const c = Math.cos(turn), s = Math.sin(turn);
+          const nx = plane.vx * c - plane.vy * s;
+          plane.vy = plane.vx * s + plane.vy * c;
+          plane.vx = nx;
+          turned += turn;
+          loops = Math.floor(turned / (Math.PI * 2));
+        }
+        plane.x += plane.vx * dt;
+        plane.y += plane.vy * dt;
+        if (frame % 3 === 0) trail.push({ x: plane.x, y: plane.y });
+
+        // Landed!
+        if (plane.y <= 0) {
+          plane.y = 0;
+          result = Math.max(0, Math.round(plane.x));
+          step = "landed";
+          frame = 0;
+          badgeMessage = "";
+          if (result > (bests[chosen] || 0)) {
+            bests[chosen] = result;
+            newRecord = true;
+            try { localStorage.setItem("hdboc-throw-bests", JSON.stringify(bests)); } catch (e) {}
+            showBests();
+          }
+          if (result >= 100 && earnBadge("longshot")) badgeMessage = "🎯 Badge: Long Shot!";
+        }
+      }
+      // The camera follows the plane
+      const target = Math.max(0, plane.x * SCALE - 250);
+      camX += (target - camX) * 0.15;
+    }
+
+    // ----- DRAW -----
+    function sx(feet) { return 120 + feet * SCALE - camX; }   // feet -> screen x
+    function sy(feet) { return GROUND - feet * SCALE; }       // feet -> screen y
+
+    function comicText(text, x, y, size, color) {
+      ctx.font = "bold " + size + "px 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineWidth = Math.max(4, size / 6);
+      ctx.strokeStyle = "#111";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    }
+
+    function drawPlane(x, y, heading, scale) {
+      const p = PLANES[chosen];
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(heading);
+      ctx.scale(scale, scale);
+      if (chosen === "looper") ctx.scale(1, -1);   // the Looper flies upside down!
+      ctx.lineJoin = "round";
+      ctx.lineWidth = 3 / scale;
+      ctx.strokeStyle = "#111";
+      const nose = p.fins ? 28 : 22;
+      ctx.fillStyle = p.wing;
+      ctx.beginPath(); ctx.moveTo(nose, 0); ctx.lineTo(-20, -12); ctx.lineTo(-10, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = p.fold;
+      ctx.beginPath(); ctx.moveTo(nose, 0); ctx.lineTo(-10, 0); ctx.lineTo(-16, 12); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if (p.fins) {
+        ctx.beginPath(); ctx.moveTo(-14, -8); ctx.lineTo(-22, -20); ctx.lineTo(-8, -10); ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function draw() {
+      // sky
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#7cc4f2");
+      sky.addColorStop(1, "#d6effc");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+      // clouds (they move slower than the ground, so they look far away)
+      ctx.fillStyle = "#ffffff";
+      for (let i = 0; i < 6; i++) {
+        const cx = ((i * 260 - camX * 0.3) % 1560 + 1560) % 1560 - 100;
+        const cy = 50 + (i % 3) * 35;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+        ctx.arc(cx + 24, cy - 10, 24, 0, Math.PI * 2);
+        ctx.arc(cx + 48, cy, 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // grass with a stripe every 10 feet, and a sign every 10 feet
+      ctx.fillStyle = "#4f9a3a";
+      ctx.fillRect(0, GROUND, W, H - GROUND);
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, GROUND, W, 3);
+      const first = Math.floor((camX - 120) / SCALE / 10) * 10;
+      for (let ft = Math.max(0, first); ft < first + 160; ft += 10) {
+        const x = sx(ft);
+        if (x < -40 || x > W + 40) continue;
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillRect(x - 1, GROUND + 3, 2, H - GROUND);
+        ctx.fillStyle = "#6b4a2a";
+        ctx.fillRect(x - 2, GROUND - 26, 4, 26);
+        ctx.fillStyle = ft === 100 ? "#f2c230" : "#ffffff";
+        ctx.fillRect(x - 18, GROUND - 44, 36, 20);
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+        ctx.strokeRect(x - 18, GROUND - 44, 36, 20);
+        ctx.fillStyle = "#111";
+        ctx.font = "bold 13px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(ft === 0 ? "START" : ft + " ft", x, GROUND - 29);
+      }
+      // a flag at your best throw with this plane
+      if (bests[chosen]) {
+        const bx = sx(bests[chosen]);
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(bx, GROUND); ctx.lineTo(bx, GROUND - 70); ctx.stroke();
+        ctx.fillStyle = "#d33a2c";
+        ctx.beginPath(); ctx.moveTo(bx, GROUND - 70); ctx.lineTo(bx + 26, GROUND - 62); ctx.lineTo(bx, GROUND - 54); ctx.fill();
+        comicText("BEST", bx + 2, GROUND - 76, 14, "#f2c230");
+      }
+      // dotted trail behind the plane
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      trail.forEach(function (t) { ctx.fillRect(sx(t.x) - 2, sy(t.y) - 2, 4, 4); });
+
+      // the plane
+      const heading = step === "flying" || step === "landed"
+        ? -Math.atan2(plane.vy, plane.vx)
+        : -angle * Math.PI / 180;
+      drawPlane(sx(plane.x), sy(plane.y), step === "landed" ? 0.1 : heading, 1.6);
+
+      // ANGLE: a dotted line shows where you're aiming
+      if (step === "angle" || step === "power") {
+        const a = angle * Math.PI / 180;
+        ctx.setLineDash([8, 8]);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(sx(0), sy(5));
+        ctx.lineTo(sx(0) + Math.cos(a) * 140, sy(5) - Math.sin(a) * 140);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        comicText(Math.round(angle) + "°", sx(0) + Math.cos(a) * 165, sy(5) - Math.sin(a) * 165 + 8, 22, "#ffffff");
+      }
+      // POWER: a bar that fills up and down
+      if (step === "power" || step === "angle") {
+        ctx.fillStyle = "rgba(0,0,0,0.35)";
+        ctx.fillRect(W - 60, 40, 30, 220);
+        if (step === "power") {
+          const h = 220 * power;
+          ctx.fillStyle = power > 0.8 ? "#d33a2c" : power > 0.4 ? "#f2c230" : "#4f9a3a";
+          ctx.fillRect(W - 60, 260 - h, 30, h);
+        }
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+        ctx.strokeRect(W - 60, 40, 30, 220);
+        comicText("POWER", W - 45, 30, 14, "#ffffff");
+      }
+
+      // Words at the top
+      if (step === "angle") comicText("Tap to pick your ANGLE", W / 2, 50, 28, "#ffffff");
+      else if (step === "power") comicText("Tap to pick your POWER", W / 2, 50, 28, "#ffffff");
+      else if (step === "flying") {
+        comicText(Math.max(0, Math.round(plane.x)) + " ft", W / 2, 50, 34, "#ffffff");
+        if (loops > 0) comicText("🔄 x" + loops, W / 2, 85, 22, "#f2c230");
+      } else {
+        comicText(result + " FEET!", W / 2, 60, 44, "#f2c230");
+        let line = PLANES[chosen].name;
+        if (chosen === "looper") line += " did " + loops + (loops === 1 ? " loop" : " loops") + "!";
+        comicText(line, W / 2, 98, 22, "#ffffff");
+        if (newRecord) comicText("🏆 NEW RECORD!", W / 2, 132, 24, "#f2c230");
+        if (badgeMessage) comicText(badgeMessage, W / 2, 164, 20, "#f2c230");
+        if (frame > 30) comicText("Tap to throw again", W / 2, 200, 20, "#ffffff");
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    showChosen();
+    showBests();
+    ready();
+    loop();
+  </script>
+
+</body>
+</html>
