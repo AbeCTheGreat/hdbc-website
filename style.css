@@ -44,7 +44,7 @@
   background: var(--blue);
 }
 /* Plain links inside the page get a lighter blue in dark mode */
-:root[data-theme="dark"] section a:not(.button):not(.card) {
+:root[data-theme="dark"] section a:not(.button):not(.card):not(.countdown-strip) {
   color: var(--link);
 }
 :root[data-theme="dark"] .maker-buttons button.on {
@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 21 badges = 7 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 24 badges = 8 neat rows of 3 */
   gap: 10px;
 }
 .badge {
@@ -1731,4 +1731,178 @@ kbd {
   min-width: 40px;
   font-size: 18px;
   padding: 4px 8px;
+}
+
+/* ===== IN STOCK LABELS (added by stock.js) ===== */
+.stock {
+  display: inline-block;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin: 10px 0 0;
+}
+.price-list .stock {
+  font-size: 12px;
+  margin: 0;
+  padding: 2px 8px;
+}
+.stock.in {
+  background: #e3f6d8;
+  color: #2d6b1f;
+}
+.stock.low {
+  background: #fff1c2;
+  color: #8a5a00;
+}
+.stock.out {
+  background: #fde2df;
+  color: #a82a1f;
+}
+.card.sold-out img,
+.card.sold-out svg {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+tr.sold-out td {
+  color: var(--gray);
+}
+
+/* ===== NEW COMIC COUNTDOWN (filled in by site.js) ===== */
+.countdown {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.countdown-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.countdown-unit strong {
+  font-size: 26px;
+  color: #f2c230;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.countdown-done {
+  font-size: 24px;
+  font-weight: bold;
+  color: #f2c230;
+}
+.countdown-strip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
+  flex-wrap: wrap;
+  max-width: 700px;
+  margin: 0 auto 28px;
+  padding: 12px 18px;
+  background: var(--dark-blue);
+  color: var(--white);
+  border-radius: 12px;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.countdown-strip:hover {
+  background: var(--blue);
+}
+.countdown-strip .countdown {
+  margin-top: 0;
+}
+.countdown-strip .countdown-unit {
+  min-width: 44px;
+  padding: 4px 6px;
+}
+.countdown-strip .countdown-unit strong {
+  font-size: 20px;
+}
+
+/* Plane quiz result picture */
+.quiz-plane {
+  width: 140px;
+  height: 140px;
+  margin: 8px auto;
+  display: block;
+}
+:root[data-theme="dark"] .quiz-plane {
+  background: #e8edf5;
+  border-radius: 12px;
+}
+.quiz-buttons .quiz-tips {
+  background: var(--gray);
+}
+
+/* Comic maker: a tall cover instead of a wide panel */
+#panel.cover {
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.maker-buttons input.small-input {
+  flex: 0 0 80px;
+}
+
+/* ===== STORY LEVELS ===== */
+.story-levels {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+}
+.story-levels[hidden] {
+  display: none;
+}
+.story-level {
+  font: inherit;
+  font-weight: bold;
+  font-size: 14px;
+  padding: 6px 12px;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.story-level.on {
+  border-color: var(--text);
+  background: var(--cream);
+}
+.story-level:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.story-level:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* ===== JUKEBOX ===== */
+.song-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+  padding: 4px 6px 4px 14px;
+  border: 2px solid var(--text);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.song-picker select {
+  font: inherit;
+  font-weight: bold;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
 }

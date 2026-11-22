@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Which Plane Are You? - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- THE PLANE QUIZ -->
+  <section>
+    <a class="back" href="airplanes.html">&larr; Back to the planes</a>
+    <h2>✈️ Which HDBOC Plane Are You?</h2>
+    <p class="peek-intro">Answer 5 questions to find your perfect paper airplane!</p>
+
+    <!-- The script below puts the questions (and your answer) in here -->
+    <div class="quiz" id="quiz" aria-live="polite"></div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <!-- JAVASCRIPT: the quiz -->
+  <script>
+    // ----- THE PLANES -----
+    // svg = the same drawing as on the airplanes page
+    const PLANES = {
+      original: {
+        name: "The Original", price: "$0.50",
+        svg: '<polygon points="10,50 90,20 55,85" fill="#1d4e89"/><polygon points="90,20 45,60 55,85" fill="#6b7280"/>',
+        text: "You're a classic. Simple, dependable, and you always get where you're going. Everybody likes you because you're just YOU."
+      },
+      looper: {
+        name: "Looper", price: "$1",
+        svg: '<circle cx="50" cy="45" r="30" fill="none" stroke="#6b7280" stroke-width="3" stroke-dasharray="6 5"/><polygon points="30,85 70,70 52,95" fill="#1d4e89"/><polygon points="70,70 46,84 52,95" fill="#6b7280"/>',
+        text: "You're full of surprises! You do things your own way (even upside down), and life is never boring around you."
+      },
+      skyfin: {
+        name: "Sky Fin", price: "$1",
+        svg: '<polygon points="92,8 20,62 48,58" fill="#1d4e89"/><polygon points="92,8 48,58 42,82" fill="#6b7280"/><line x1="8" y1="92" x2="24" y2="78" stroke="#6b7280" stroke-width="3"/><line x1="16" y1="96" x2="30" y2="84" stroke="#6b7280" stroke-width="3"/>',
+        text: "You're calm and steady, and you go the distance. While everyone else rushes, you glide past them all."
+      },
+      skyfinplus: {
+        name: "Sky Fin+", price: "$1.10",
+        svg: '<polygon points="94,6 26,58 50,55" fill="#1d4e89"/><polygon points="94,6 50,55 46,74" fill="#6b7280"/><line x1="6" y1="86" x2="26" y2="70" stroke="#6b7280" stroke-width="3"/><line x1="12" y1="94" x2="32" y2="78" stroke="#6b7280" stroke-width="3"/><line x1="20" y1="100" x2="38" y2="86" stroke="#6b7280" stroke-width="3"/><circle cx="78" cy="78" r="16" fill="#1d4e89"/><text x="78" y="86" font-size="24" font-weight="bold" text-anchor="middle" fill="#ffffff">+</text>',
+        text: "You're FAST. You like being the best, and you're always upgrading. Second place? Never heard of it."
+      }
+    };
+
+    // ----- THE QUESTIONS -----
+    // Each answer gives a point to one plane. Most points wins!
+    const QUESTIONS = [
+      { q: "How do you get to school?", answers: [
+        ["🚌 Same way, every day", "original"], ["🤸 Cartwheels, obviously", "looper"],
+        ["🚶 A nice, calm walk", "skyfin"], ["🏃 Running. I'm always first.", "skyfinplus"] ] },
+      { q: "Pick a ride at the fair:", answers: [
+        ["🎠 The carousel, a classic", "original"], ["🎢 The upside-down roller coaster", "looper"],
+        ["🎡 The Ferris wheel, to see everything", "skyfin"], ["🏎️ The go-karts, full speed", "skyfinplus"] ] },
+      { q: "What's your favorite thing in recess?", answers: [
+        ["⚽ Whatever everyone's playing", "original"], ["🤪 Making up a brand-new game", "looper"],
+        ["🌳 Chilling under a tree", "skyfin"], ["🏁 Racing", "skyfinplus"] ] },
+      { q: "You get a new video game. What do you do first?", answers: [
+        ["📖 Start at level 1, like normal", "original"], ["🔍 Look for secret levels", "looper"],
+        ["🗺️ Explore the whole map", "skyfin"], ["🏆 Try to beat the high score", "skyfinplus"] ] },
+      { q: "Pick a superpower:", answers: [
+        ["👍 Never having a bad day", "original"], ["🌀 Flipping gravity upside down", "looper"],
+        ["🦅 Gliding forever", "skyfin"], ["⚡ Super speed", "skyfinplus"] ] }
+    ];
+
+    const quiz = document.getElementById("quiz");
+    let step = 0, points = {}, lastPick = "";
+
+    function start() {
+      step = 0;
+      points = {};
+      lastPick = "";
+      showQuestion();
+    }
+
+    function showQuestion() {
+      const item = QUESTIONS[step];
+      quiz.innerHTML = "";
+      const progress = document.createElement("p");
+      progress.className = "quiz-progress";
+      progress.textContent = "Question " + (step + 1) + " of " + QUESTIONS.length;
+      const bar = document.createElement("div");
+      bar.className = "quiz-bar";
+      const fill = document.createElement("div");
+      fill.style.width = (step / QUESTIONS.length * 100) + "%";
+      bar.appendChild(fill);
+      const question = document.createElement("h3");
+      question.textContent = item.q;
+      const answers = document.createElement("div");
+      answers.className = "quiz-answers";
+      item.answers.forEach(function (a) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "quiz-answer";
+        b.textContent = a[0];
+        b.addEventListener("click", function () { pick(a[1]); });
+        answers.appendChild(b);
+      });
+      quiz.append(progress, bar, question, answers);
+    }
+
+    function pick(which) {
+      points[which] = (points[which] || 0) + 1;
+      lastPick = which;
+      step++;
+      if (step < QUESTIONS.length) showQuestion();
+      else showResult();
+    }
+
+    function showResult() {
+      // Most points wins (ties go to your last answer)
+      let winner = lastPick;
+      Object.keys(points).forEach(function (p) { if (points[p] > points[winner]) winner = p; });
+      const plane = PLANES[winner];
+
+      quiz.innerHTML =
+        '<div class="quiz-result">' +
+          '<p class="quiz-progress">You are...</p>' +
+          '<svg class="quiz-plane" viewBox="0 0 100 100" aria-hidden="true">' + plane.svg + '</svg>' +
+          '<h3></h3>' +
+          '<p class="char-role"></p>' +
+          '<p class="result-text"></p>' +
+          '<div class="quiz-buttons">' +
+            '<a class="button" href="order.html"></a>' +
+            '<a class="button quiz-tips" href="tips.html">Flying tips</a>' +
+            '<button type="button" class="quiz-again">🔄 Take it again</button>' +
+          '</div>' +
+        '</div>';
+      quiz.querySelector("h3").textContent = plane.name + "!";
+      quiz.querySelector(".char-role").textContent = "Only " + plane.price + " at HDBOC";
+      quiz.querySelector(".result-text").textContent = plane.text;
+      quiz.querySelector(".quiz-buttons .button").textContent = "✈️ Order a " + plane.name.replace("The ", "");
+      quiz.querySelector(".quiz-again").addEventListener("click", start);
+    }
+
+    start();
+  </script>
+
+</body>
+</html>

@@ -86,13 +86,29 @@
     <div class="mode-picker" role="radiogroup" aria-label="Game mode">
       <button type="button" class="mode-choice" data-mode="normal" role="radio">✈️ Normal</button>
       <button type="button" class="mode-choice" data-mode="rush" role="radio">👾 Boss Rush</button>
+      <button type="button" class="mode-choice" data-mode="story" role="radio">📖 Story</button>
     </div>
+    <!-- STORY LEVELS: only shows up in Story mode. The script adds the buttons. -->
+    <div class="story-levels" id="story-levels" hidden></div>
 
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
     <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
     <div class="game-buttons">
       <button type="button" id="sound-button" class="sound-button" aria-pressed="true">🔊 Sound on</button>
       <button type="button" id="music-button" class="sound-button" aria-pressed="true">🎵 Music on</button>
+      <!-- JUKEBOX: pick which song plays -->
+      <label class="song-picker">🎶
+        <select id="song-select" aria-label="Pick a song">
+          <option value="auto">Auto (changes by itself)</option>
+          <option value="day">Sunny Day</option>
+          <option value="night">Night Flight</option>
+          <option value="spooky">Spooky</option>
+          <option value="holiday">Holiday</option>
+          <option value="space">Outer Space</option>
+          <option value="boogie">Bagel Boogie ⭐ new</option>
+          <option value="hero">Hero Theme ⭐ new</option>
+        </select>
+      </label>
       <button type="button" id="pause-button" class="sound-button">⏸️ Pause</button>
       <button type="button" id="ghost-button" class="sound-button" aria-pressed="true">👻 Ghost on</button>
     </div>
@@ -108,7 +124,9 @@
       🔥 Think you can reach <strong>150</strong>? Someone's waiting for you there...<br>
       🤫 And if you make it to <strong>200</strong>... you'll find a secret.<br>
       👾 <strong>Boss Rush:</strong> no stacks, just bosses, one after another. Each round gets faster!<br>
-      ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, and a giant snowman at 75 points!</p>
+      ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, and a giant snowman at 75 points!<br>
+      📖 <strong>Story mode:</strong> 5 levels starring the HDBOC characters. Can you finish the story?<br>
+      🐶 Buy a <strong>flying buddy</strong> in the Coin Shop. It flies next to you and grabs coins!</p>
 
     <!-- MORE GAMES -->
     <p class="more-games">
@@ -321,6 +339,43 @@
     const MELODY = [523, 659, 784, 659, 698, 880, 784, 0, 659, 784, 1047, 988, 880, 784, 659, 0];
     const BASS =   [131, 0, 0, 0, 175, 0, 0, 0, 196, 0, 0, 0, 131, 0, 0, 0];
     const NIGHT_MELODY = [440, 523, 659, 523, 587, 698, 659, 0, 523, 659, 880, 784, 698, 659, 523, 0];
+    // ----- JUKEBOX: all the songs -----
+    // m = the melody (16 notes),  b = the bass (16 notes).  0 = a rest.
+    const SONGS = {
+      day:     { m: MELODY, b: BASS },
+      night:   { m: NIGHT_MELODY, b: BASS },
+      spooky:  { m: [440, 0, 415, 0, 440, 523, 494, 0, 440, 0, 392, 0, 370, 392, 440, 0],
+                 b: [110, 0, 0, 0, 104, 0, 0, 0, 98, 0, 0, 0, 92, 0, 0, 0] },
+      holiday: { m: [659, 659, 659, 0, 659, 659, 659, 0, 659, 784, 523, 587, 659, 0, 0, 0],
+                 b: [131, 0, 0, 0, 131, 0, 0, 0, 131, 0, 175, 0, 131, 0, 0, 0] },
+      space:   { m: [523, 784, 1047, 784, 587, 880, 1175, 880, 659, 988, 1319, 988, 587, 880, 1175, 880],
+                 b: [131, 0, 0, 0, 147, 0, 0, 0, 165, 0, 0, 0, 147, 0, 0, 0] },
+      boogie:  { m: [392, 0, 392, 466, 523, 0, 466, 392, 349, 0, 349, 392, 440, 392, 349, 0],
+                 b: [98, 0, 123, 0, 147, 0, 123, 0, 87, 0, 110, 0, 131, 0, 110, 0] },
+      hero:    { m: [523, 0, 523, 659, 784, 0, 659, 784, 1047, 0, 988, 880, 784, 0, 0, 0],
+                 b: [131, 0, 0, 0, 165, 0, 0, 0, 175, 0, 0, 0, 196, 0, 0, 0] }
+    };
+    let song = "auto";
+    try { if (SONGS[localStorage.getItem("hdboc-song")]) song = localStorage.getItem("hdboc-song"); } catch (e) {}
+    // "Auto" picks a song that fits what's happening
+    function currentSong() {
+      if (song !== "auto") return SONGS[song];
+      if (space > 0) return SONGS.space;
+      if (night > 0.5) return SONGS.night;
+      if (WINTER) return SONGS.holiday;
+      return SONGS.day;
+    }
+    const songSelect = document.getElementById("song-select");
+    songSelect.value = song;
+    songSelect.addEventListener("change", function () {
+      song = songSelect.value;
+      try { localStorage.setItem("hdboc-song", song); } catch (e) {}
+      earn("dj");
+      // play a little bit so you can hear it
+      startAudio();
+      if (musicOn && song !== "auto") tune("triangle", SONGS[song].m.slice(0, 8), 150, 0.07);
+    });
+
     let musicOn = true;
     try { musicOn = localStorage.getItem("hdboc-music") !== "off"; } catch (e) {}
     let musicStep = 0;
@@ -342,11 +397,12 @@
     // Every 150 milliseconds, play the next step of the tune (only while flying)
     setInterval(function () {
       if (!musicOn || !audio || state !== "playing") return;
-      const tune = night > 0.5 ? NIGHT_MELODY : MELODY;   // a spookier tune at night
+      const music = currentSong();   // the song from the jukebox
+      const tune = music.m;
       const fast = boss || cops || antis || snowman ? 2 : 1;   // the tune goes double-speed during a boss!
       for (let i = 0; i < fast; i++) {
         musicNote("triangle", tune[musicStep % 16], 0.14, 0.05);
-        musicNote("square", BASS[musicStep % 16], 0.3, 0.025);
+        musicNote("square", music.b[musicStep % 16], 0.3, 0.025);
         musicStep++;
       }
     }, 150);
@@ -386,7 +442,10 @@
       { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Throw 100 feet in the Throwing Contest" },
       { id: "snowman",   icon: "⛄", name: "Snow Way!",      how: "Survive the giant snowman (winter only)" },
       { id: "rush",      icon: "👾", name: "Boss Rusher",    how: "Beat every boss in Boss Rush" },
-      { id: "designer",  icon: "✏️", name: "Plane Designer", how: "Fly a plane you designed" }
+      { id: "designer",  icon: "✏️", name: "Plane Designer", how: "Fly a plane you designed" },
+      { id: "story",     icon: "📖", name: "Story Hero",     how: "Finish all 5 story levels" },
+      { id: "buddy",     icon: "🐶", name: "Best Friends",   how: "Get a flying buddy" },
+      { id: "dj",        icon: "🎶", name: "DJ",             how: "Pick a song in the jukebox" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -458,6 +517,9 @@
     try { wallet = Number(localStorage.getItem("hdboc-wallet")) || 0; } catch (e) {}
     let owned = {};   // what you've bought
     try { owned = JSON.parse(localStorage.getItem("hdboc-owned")) || {}; } catch (e) { owned = {}; }
+    let buddy = "none";   // your flying buddy
+    try { buddy = localStorage.getItem("hdboc-buddy") || "none"; } catch (e) {}
+    let buddyPos = { x: 50, y: 270 };
     let hat = "none";
     try { hat = localStorage.getItem("hdboc-hat") || "none"; } catch (e) {}
     if (hat !== "none" && !owned[hat]) hat = "none";
@@ -472,7 +534,10 @@
       { id: "santa",     type: "hat",  icon: "🎅", name: "Santa Hat",     price: 35 },
       { id: "tophat",    type: "hat",  icon: "🎩", name: "Top Hat",       price: 40 },
       { id: "rainbow",   type: "skin", icon: "🌈", name: "Rainbow Skin",  price: 50 },
-      { id: "crown",     type: "hat",  icon: "👑", name: "Crown",         price: 75 }
+      { id: "crown",     type: "hat",  icon: "👑", name: "Crown",         price: 75 },
+      { id: "pup",       type: "buddy", icon: "🐶", name: "Puppy Biscuit", price: 40 },
+      { id: "minicop",   type: "buddy", icon: "🚓", name: "Mini Cop Car",  price: 50 },
+      { id: "minibug",   type: "buddy", icon: "🦗", name: "Mini Antis",    price: 60 }
     ];
 
     function saveShop() {
@@ -480,6 +545,7 @@
         localStorage.setItem("hdboc-wallet", String(wallet));
         localStorage.setItem("hdboc-owned", JSON.stringify(owned));
         localStorage.setItem("hdboc-hat", hat);
+        localStorage.setItem("hdboc-buddy", buddy);
       } catch (e) {}
     }
 
@@ -490,7 +556,7 @@
       SHOP.forEach(function (item) {
         const card = document.createElement("div");
         const have = !!owned[item.id];
-        const wearing = item.type === "hat" ? hat === item.id : skin === item.id;
+        const wearing = item.type === "hat" ? hat === item.id : item.type === "buddy" ? buddy === item.id : skin === item.id;
         card.className = "shop-item" + (have ? " owned" : "") + (wearing ? " wearing" : "");
         const icon = document.createElement("span");
         icon.className = "shop-icon";
@@ -503,10 +569,10 @@
           b.textContent = "Buy: " + item.price + " 🪙";
           b.disabled = wallet < item.price;
         } else if (wearing) {
-          b.textContent = item.type === "hat" ? "Take off" : "✓ Wearing";
+          b.textContent = item.type === "hat" ? "Take off" : item.type === "buddy" ? "Send home" : "✓ Wearing";
           b.disabled = item.type === "skin";
         } else {
-          b.textContent = "Wear";
+          b.textContent = item.type === "buddy" ? "Bring along" : "Wear";
         }
         b.addEventListener("click", function () {
           if (state === "playing" || state === "paused") return;   // no shopping mid-flight!
@@ -517,9 +583,11 @@
             if (item.type === "skin") skinWasUnlocked[item.id] = true;
             play("buy");
             earn("shopper");
+            if (item.type === "buddy") earn("buddy");
           }
           // Put it on (or take the hat off)
           if (item.type === "hat") hat = (have && wearing) ? "none" : item.id;
+          else if (item.type === "buddy") buddy = (have && wearing) ? "none" : item.id;
           else {
             skin = item.id;
             try { localStorage.setItem("hdboc-skin", skin); } catch (e) {}
@@ -616,7 +684,7 @@
     }
     function saveGhost() {
       // Only save it if this run beat the old ghost
-      if (mode === "rush") return;   // no ghosts in Boss Rush
+      if (mode !== "normal") return;   // no ghosts in Boss Rush or Story
       const old = ghostData ? ghostData.score : 0;
       if (score > old && score >= 3) {
         try { localStorage.setItem("hdboc-ghost-" + chosen, JSON.stringify({ score: score, ys: ghostRun })); } catch (e) {}
@@ -790,6 +858,19 @@
         bossDone = true; copsDone = true; antisDone = true; snowDone = true;
         ghostData = null;   // no ghost in Boss Rush
       }
+      buddyPos = { x: 50, y: H / 2 - 30 };
+      if (mode === "story") {
+        // Story mode: each level has its own goal, then its own boss
+        bossDone = true; copsDone = true; antisDone = true; snowDone = true;
+        ghostData = null;
+        storyPhase = "goal";
+        storyQueue = [];
+        storyWait = 0;
+        storyStacks = 0;
+        const lv = STORY[storyLevel];
+        if (lv.night) night = 1;
+        if (lv.storm) { weather = "storm"; weatherTimer = 1e9; }
+      }
       score = 0;
       frame = 0;
       speed = P().speed;
@@ -913,6 +994,12 @@
     // What happens when you click, tap, or press space
     function flap() {
       if (state === "paused") { togglePause(); return; }   // tap to keep flying
+      if (state === "scene") { nextScene(); return; }      // tap to read the next comic panel
+      if (state === "start" && mode === "story") {
+        reset();
+        showScene(STORY[storyLevel].intro, STORY[storyLevel].title, "intro");
+        return;
+      }
       if (state === "start") {
         reset();
         state = "playing";
@@ -943,7 +1030,7 @@
       }
       if (unlockTimer > 0) unlockTimer--;
       // SECRET LEVEL: at 200 points you fly right up into OUTER SPACE!
-      if (score >= 200 && space === 0 && mode !== "rush") {
+      if (score >= 200 && space === 0 && mode === "normal") {
         space = 0.001;
         weather = "clear";
         rainDrops = [];
@@ -963,7 +1050,7 @@
       // ----- WEATHER -----
       // Every so often the weather changes. No wind or lightning during a boss fight!
       const bossHere = boss || cops || antis || snowman;
-      if (score >= 5 && mode !== "rush") weatherTimer--;   // no weather in Boss Rush
+      if (score >= 5 && mode === "normal") weatherTimer--;   // no surprise weather in Boss Rush or Story
       if (weatherTimer <= 0) {
         weatherTimer = 500 + Math.random() * 300;
         const r = Math.random();
@@ -1001,7 +1088,7 @@
 
       // LIGHTNING: it aims at the half of the sky you're in. Move to the other half!
       if (flash > 0) flash--;
-      if (weather === "storm" && !bossHere && !bolt && Math.random() < 1 / 160) {
+      if (weather === "storm" && !bossHere && !bolt && Math.random() < (mode === "story" ? 1 / 70 : 1 / 160)) {   // more lightning in Story level 3
         bolt = { top: plane.y < GROUND / 2, warn: 80, strike: 0 };
       }
       if (bolt) {
@@ -1028,13 +1115,25 @@
       }
       plane.y += plane.vy;
 
+      // FLYING BUDDY: follows you, and zooms over to grab coins that are close
+      if (buddy !== "none") {
+        let tx = plane.x - 34, ty = plane.y - 28 + Math.sin(frame / 15) * 4;
+        const near = coins.find(function (c) {
+          return !c.got && c.x > plane.x - 20 && c.x < plane.x + 150 && Math.abs(c.y - plane.y) < 150;
+        });
+        if (near) { tx = near.x; ty = near.y; }
+        buddyPos.x += (tx - buddyPos.x) * 0.12;
+        buddyPos.y += (ty - buddyPos.y) * 0.12;
+      }
+
       // Slow-mo makes the world move at half speed
       const slow = slowTimer > 0 ? 0.5 : 1;
       if (magnetTimer > 0) magnetTimer--;
       if (slowTimer > 0) slowTimer--;
 
       // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
-      if (!boss && !cops && !antis && !snowman && mode !== "rush") spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
+      const storyBossTime = mode === "story" && storyPhase !== "goal";
+      if (!boss && !cops && !antis && !snowman && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
       if (spawnClock >= SPAWN_EVERY) {
         spawnClock -= SPAWN_EVERY;
         addStack();
@@ -1043,7 +1142,8 @@
       // Halfway between stacks: usually a coin, but every so often a power-up!
       if (spawnClock >= SPAWN_EVERY / 2 && spawnClock - slow < SPAWN_EVERY / 2) {
         const y = 90 + Math.random() * (GROUND - 180);
-        if (stackCount % 6 === 5 && Math.random() < 0.8) {
+        const powerEvery = mode === "story" && STORY[storyLevel].morePowerups ? 2 : 6;   // Story level 4 has extra power-ups
+        if (stackCount % powerEvery === powerEvery - 1 && Math.random() < 0.8) {
           // In winter, a third kind of power-up can show up: the snowball shield!
           const kind = WINTER && Math.random() < 0.34 ? "snowball" : (Math.random() < 0.5 ? "magnet" : "slow");
           powerups.push({ x: W, y: y, type: kind });
@@ -1058,6 +1158,7 @@
         if (!s.scored && s.x + STACK_WIDTH < plane.x) {
           s.scored = true;
           score += P().points;
+          storyStacks++;
           play("point");
           checkUnlock();
         }
@@ -1074,7 +1175,8 @@
           if (dist < 220) { c.x += mx / dist * 7; c.y += my / dist * 7; }
         }
         const dx = c.x - plane.x, dy = c.y - plane.y;
-        if (!c.got && dx * dx + dy * dy < 24 * 24) {
+        const bx = c.x - buddyPos.x, by = c.y - buddyPos.y;   // your buddy can grab coins too
+        if (!c.got && (dx * dx + dy * dy < 24 * 24 || (buddy !== "none" && bx * bx + by * by < 22 * 22))) {
           c.got = true;
           score += 1;
           coinsThisGame++;
@@ -1123,6 +1225,35 @@
           else if (next === "snowman") startSnowman();
           else if (next === "cops") startCops();
           else startAntis();
+        }
+      }
+
+      // ----- STORY MODE: finish the goal, then beat the boss -----
+      if (mode === "story") {
+        const lv = STORY[storyLevel];
+        if (storyPhase === "goal" && lv.goal.have() >= lv.goal.need) {
+          storyPhase = "boss";
+          storyQueue = lv.bosses.slice();
+          storyWait = 60;
+          play("unlock");
+          toasts.push({ text: "✅ Goal done!", t: 120 });
+          toasts.push({ text: lv.bossLine, t: 170 });
+        }
+        if (storyPhase === "boss" && !boss && !cops && !antis && !snowman) {
+          storyWait--;
+          if (storyWait <= 0) {
+            if (storyQueue.length) {
+              const next = storyQueue.shift();
+              storyWait = 90;
+              if (next === "biscuit") startBiscuit();
+              else if (next === "snowman") startSnowman();
+              else if (next === "cops") startCops();
+              else startAntis();
+            } else {
+              finishStoryLevel();
+              return;
+            }
+          }
         }
       }
 
@@ -1393,9 +1524,206 @@
       toasts.push({ text: "⛄ GIANT SNOWMAN! Dodge!", t: 150 });
     }
 
+    // ----- STORY MODE -----
+    // The characters (cut out of our comic covers, same numbers as the characters page)
+    const CAST = {
+      barry:   { name: "Barry",        img: "not-smart-cops.png",   x: 215, y: 845,  w: 230, h: 635 },
+      lou:     { name: "Lou",          img: "not-smart-cops.png",   x: 590, y: 960,  w: 330, h: 520 },
+      antis:   { name: "PrayingAntis", img: "praying-antis.png",    x: 290, y: 640,  w: 520, h: 820 },
+      biscuit: { name: "Biscuit",      img: "peek-antis.png",       x: 415, y: 425,  w: 100, h: 80 },
+      gus:     { name: "Gus",          img: "not-smart-sports.png", x: 355, y: 890,  w: 240, h: 590 },
+      ray:     { name: "Ray",          img: "not-smart-sports.png", x: 730, y: 1060, w: 230, h: 440 }
+    };
+    // The 5 levels. Each has: a comic scene, a goal, boss(es), and an ending scene.
+    const STORY = [
+      { title: "Level 1: The Loot Bag",
+        intro: [["barry", "Lou! Where's the loot bag?!"],
+                ["lou", "I put it down for ONE second... and the coins flew everywhere!"],
+                ["barry", "Hey, paper plane! Grab 8 coins for us!"]],
+        goal: { text: "Grab 8 coins", need: 8, have: function () { return coinsThisGame; } },
+        bosses: ["cops"], bossLine: "Barry: Wait... YOU took our loot!",
+        outro: [["lou", "Oh. The loot bag was in my pocket the whole time."],
+                ["barry", "...Nobody tell the chief."]] },
+      { title: "Level 2: Bagel Run",
+        intro: [["gus", "The World Series starts in 10 minutes!"],
+                ["ray", "And we're OUT of bagels! Fly to Mo's and back, fast!"]],
+        goal: { text: "Fly past 12 stacks", need: 12, have: function () { return storyStacks; } },
+        bosses: ["biscuit"], bossLine: "Biscuit smells the bagels! WOOF!",
+        outro: [["ray", "Bagels for everyone! Even Biscuit."],
+                ["biscuit", "Woof! (Thank you!)"]] },
+      { title: "Level 3: Thunder Night", night: true, storm: true,
+        intro: [["gus", "Uh oh. A HUGE storm is coming!"],
+                ["ray", "If lightning hits the stadium, the game is canceled! Dodge 3 bolts!"]],
+        goal: { text: "Dodge 3 lightning bolts", need: 3, have: function () { return boltsDodged; } },
+        bosses: ["snowman"], bossLine: "The storm turned into a BLIZZARD!",
+        outro: [["gus", "The snowman melted and the sky is clear!"],
+                ["ray", "PLAY BALL!"]] },
+      { title: "Level 4: Bug Hunt", morePowerups: true,
+        intro: [["antis", "I've been watching you... little paper BUG."],
+                ["biscuit", "Woof! (He thinks you're a bug! Grab 2 power-ups to get ready!)"]],
+        goal: { text: "Grab 2 power-ups", need: 2, have: function () { return powerupsThisGame; } },
+        bosses: ["antis"], bossLine: "PrayingAntis: Hold still, bug!",
+        outro: [["antis", "Oh! You're a PLANE. My mistake."],
+                ["antis", "Want a bagel? I only burned half of them."]] },
+      { title: "Level 5: The Big Game",
+        intro: [["barry", "Everybody's here for the World Series!"],
+                ["antis", "But first, EVERY boss wants a rematch!"],
+                ["ray", "Score 20 points, then beat them all. You got this!"]],
+        goal: { text: "Score 20 points", need: 20, have: function () { return score; } },
+        bosses: ["biscuit", "cops", "antis"], bossLine: "👾 FINAL BATTLE! Here they come!",
+        outro: [["gus", "YOU DID IT! HDBOC wins the World Series!"],
+                ["ray", "THE END... for now. 🏆"]] }
+    ];
+    let storyUnlocked = 1;   // how many levels you can play (6 = you beat them all)
+    try { storyUnlocked = Math.max(1, Number(localStorage.getItem("hdboc-story")) || 1); } catch (e) {}
+    let storyLevel = Math.min(storyUnlocked, STORY.length) - 1;
+    let storyPhase = "goal", storyQueue = [], storyWait = 0, storyStacks = 0;
+    let scene = [], sceneIndex = 0, sceneKind = "intro", sceneTitle = "";
+
+    function showScene(lines, title, kind) {
+      scene = lines;
+      sceneIndex = 0;
+      sceneKind = kind;
+      sceneTitle = title;
+      state = "scene";
+    }
+    function nextScene() {
+      sceneIndex++;
+      play("point");
+      if (sceneIndex < scene.length) return;
+      if (sceneKind === "intro") {
+        state = "playing";
+        toasts.push({ text: "🎯 " + STORY[storyLevel].goal.text + "!", t: 150 });
+      } else {
+        // after the ending scene, get ready for the next level
+        if (storyLevel < STORY.length - 1) storyLevel++;
+        reset();
+        state = "start";
+        showStoryLevels();
+      }
+    }
+    function finishStoryLevel() {
+      storyPhase = "done";
+      const firstTime = storyUnlocked < storyLevel + 2;
+      storyUnlocked = Math.max(storyUnlocked, storyLevel + 2);
+      try { localStorage.setItem("hdboc-story", String(storyUnlocked)); } catch (e) {}
+      let title = "LEVEL COMPLETE!";
+      if (firstTime) {
+        wallet += 10;   // 10 coins for beating a level the first time
+        try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
+        title = "LEVEL COMPLETE! +10 🪙";
+        showShop();
+      }
+      if (storyLevel === STORY.length - 1) earn("story");
+      play("unlock");
+      showScene(STORY[storyLevel].outro, title, "outro");
+      showStoryLevels();
+    }
+
+    // The Level 1 - 5 buttons (only in Story mode)
+    function showStoryLevels() {
+      const box = document.getElementById("story-levels");
+      box.hidden = mode !== "story";
+      box.innerHTML = "";
+      STORY.forEach(function (lv, i) {
+        const b = document.createElement("button");
+        b.type = "button";
+        const open = i < storyUnlocked;
+        const beaten = i < storyUnlocked - 1;
+        b.textContent = (open ? (beaten ? "⭐ " : "") : "🔒 ") + "Level " + (i + 1);
+        b.disabled = !open;
+        b.className = "story-level" + (i === storyLevel ? " on" : "");
+        b.addEventListener("click", function () {
+          if (state === "playing" || state === "paused" || state === "scene") return;
+          storyLevel = i;
+          reset();
+          state = "start";
+          showStoryLevels();
+        });
+        box.appendChild(b);
+      });
+    }
+
+    // Loads the comic pictures only when Story mode needs them
+    const PICS = {};
+    function pic(file) {
+      if (!PICS[file]) { PICS[file] = new Image(); PICS[file].src = file; }
+      return PICS[file];
+    }
+    function wrapText(text, maxWidth) {
+      const words = text.split(" "), lines = [];
+      let line = "";
+      words.forEach(function (w) {
+        const test = line ? line + " " + w : w;
+        if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; }
+        else line = test;
+      });
+      if (line) lines.push(line);
+      return lines;
+    }
+
+    // Draws one comic panel: a caption, a speech bubble, and the character
+    function drawScene() {
+      const line = scene[sceneIndex];
+      const who = CAST[line[0]];
+      ctx.fillStyle = "rgba(15, 42, 74, 0.6)";
+      ctx.fillRect(0, 0, W, H);
+      // the panel
+      ctx.fillStyle = "#fff8e7";
+      ctx.fillRect(20, 20, W - 40, H - 40);
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = "#111";
+      ctx.strokeRect(20, 20, W - 40, H - 40);
+      // the caption box at the top
+      ctx.fillStyle = "#f2c230";
+      ctx.fillRect(20, 20, W - 40, 44);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(20, 20, W - 40, 44);
+      ctx.fillStyle = "#111";
+      ctx.font = "bold 19px 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(sceneTitle, W / 2, 49);
+      // the character's picture
+      const img = pic(who.img);
+      const ph = Math.min(280, (W - 80) * who.h / who.w);
+      const pw = ph * who.w / who.h;
+      const px = W / 2 - pw / 2, py = H - 70 - ph;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(px, py, pw, ph);
+      if (img.complete && img.naturalWidth) ctx.drawImage(img, who.x, who.y, who.w, who.h, px, py, pw, ph);
+      ctx.strokeRect(px, py, pw, ph);
+      // the speech bubble
+      ctx.font = "bold 19px 'Comic Sans MS', 'Segoe UI', Arial, sans-serif";
+      const lines = wrapText(line[1], W - 110);
+      const bx = 40, by = 82, bw = W - 80, bh = lines.length * 25 + 48;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.moveTo(bx + 16, by);
+      ctx.arcTo(bx + bw, by, bx + bw, by + bh, 16);
+      ctx.arcTo(bx + bw, by + bh, bx, by + bh, 16);
+      ctx.lineTo(W / 2 + 14, by + bh);
+      ctx.lineTo(W / 2, Math.min(py - 4, by + bh + 34));   // the pointy tail
+      ctx.lineTo(W / 2 - 14, by + bh);
+      ctx.arcTo(bx, by + bh, bx, by, 16);
+      ctx.arcTo(bx, by, bx + bw, by, 16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.fillStyle = "#d33a2c";
+      ctx.fillText(who.name.toUpperCase() + ":", W / 2, by + 28);
+      ctx.fillStyle = "#111";
+      lines.forEach(function (l, i) { ctx.fillText(l, W / 2, by + 54 + i * 25); });
+      // tap to continue (blinks)
+      if (Math.floor(frame / 30) % 2 === 0) comicText("Tap to continue ▶", W / 2, H - 38, 18, "#ffffff");
+    }
+
     // ----- GAME MODE: Normal or Boss Rush -----
     let mode = "normal";
-    try { if (localStorage.getItem("hdboc-mode") === "rush") mode = "rush"; } catch (e) {}
+    try {
+      const savedMode = localStorage.getItem("hdboc-mode");
+      if (savedMode === "rush" || savedMode === "story") mode = savedMode;
+    } catch (e) {}
     let rushBest = 0;
     try { rushBest = Number(localStorage.getItem("hdboc-rush-best")) || 0; } catch (e) {}
     const modeButtons = document.querySelectorAll(".mode-choice");
@@ -1405,10 +1733,11 @@
         b.classList.toggle("selected", on);
         b.setAttribute("aria-checked", on ? "true" : "false");
       });
+      showStoryLevels();
     }
     modeButtons.forEach(function (b) {
       b.addEventListener("click", function () {
-        if (state === "playing" || state === "paused") return;
+        if (state === "playing" || state === "paused" || state === "scene") return;
         mode = b.dataset.mode;
         try { localStorage.setItem("hdboc-mode", mode); } catch (e) {}
         showMode();
@@ -1435,7 +1764,7 @@
 
     // Did you just reach 10 points and unlock a new plane?
     function checkUnlock() {
-      if (mode === "rush") return;   // unlock planes in the normal game
+      if (mode !== "normal") return;   // unlock planes in the normal game
       const next = nextLocked();
       if (next && score >= 10) {
         bests[chosen] = Math.max(best(), score);
@@ -1459,7 +1788,7 @@
           rushBest = score;
           try { localStorage.setItem("hdboc-rush-best", String(rushBest)); } catch (e) {}
         }
-      } else if (score > best()) {
+      } else if (mode === "normal" && score > best()) {
         bests[chosen] = score;
         try { localStorage.setItem("hdboc-bests", JSON.stringify(bests)); } catch (e) {}
       }
@@ -2222,6 +2551,54 @@
       ctx.restore();
     }
 
+    // Your FLYING BUDDY (small, with flapping wings)
+    function drawBuddy(x, y, sc) {
+      if (buddy === "none") return;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(sc, sc);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#111";
+      ctx.lineJoin = "round";
+      const flapW = Math.sin(frame / 4) * 4;
+      // little wings
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.beginPath(); ctx.ellipse(-2, -9 - flapW, 7, 3, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      if (buddy === "pup") {
+        ctx.fillStyle = "#c98a4a";
+        ctx.beginPath(); ctx.ellipse(3, 2, 10, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();   // body
+        ctx.beginPath(); ctx.arc(-8, -2, 7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();            // head
+        ctx.fillStyle = "#8a5a2a";
+        ctx.beginPath(); ctx.ellipse(-4, -6, 3, 6, 0.5, 0, Math.PI * 2); ctx.fill();               // floppy ear
+        ctx.fillStyle = "#111";
+        ctx.beginPath(); ctx.arc(-14, -1, 1.8, 0, Math.PI * 2); ctx.fill();                        // nose
+        ctx.fillStyle = "#b6ff6a";
+        ctx.beginPath(); ctx.arc(-10, -4, 1.6, 0, Math.PI * 2); ctx.fill();                        // glowing eye
+        ctx.fillStyle = "#8be04a";
+        ctx.beginPath(); ctx.arc(7, 1, 2.5, 0, Math.PI * 2); ctx.fill();                           // toxic spot
+      } else if (buddy === "minibug") {
+        ctx.fillStyle = "#d33a2c";
+        ctx.beginPath(); ctx.moveTo(-2, -3); ctx.lineTo(14, 8 + flapW / 2); ctx.lineTo(4, 11); ctx.closePath(); ctx.fill(); ctx.stroke();   // cape
+        ctx.fillStyle = "#6bbf3a";
+        ctx.beginPath(); ctx.ellipse(3, 5, 4, 9, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.stroke();   // body
+        ctx.fillStyle = "#5a3a1a";
+        ctx.beginPath(); ctx.arc(-3, -6, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();             // ant head
+        ctx.fillStyle = "#2f55a0";
+        ctx.fillRect(-9, -8, 11, 3);                                                              // blue mask
+        ctx.beginPath(); ctx.moveTo(-3, -12); ctx.lineTo(-8, -17); ctx.stroke();                  // antenna
+      } else if (buddy === "minicop") {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(-12, -5, 24, 10); ctx.strokeRect(-12, -5, 24, 10);
+        ctx.fillStyle = "#0f2a4a";
+        ctx.fillRect(-12, -1, 24, 3);
+        ctx.fillStyle = Math.floor(frame / 12) % 2 ? "#d33a2c" : "#2f55a0";   // flashing siren
+        ctx.fillRect(-3, -9, 6, 4);
+        ctx.fillStyle = "#111";
+        ctx.beginPath(); ctx.arc(-7, 6, 3, 0, Math.PI * 2); ctx.arc(7, 6, 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
     // The see-through ghost of your best run
     function drawGhost() {
       if (!ghostOn || !ghostData || ghostPassed) return;
@@ -2283,6 +2660,7 @@
       if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawGhost(); }
       if (state !== "start") drawPlane();
       if (live) drawShield();
+      if (live) drawBuddy(buddyPos.x, buddyPos.y, 1);
       if (live) drawWeather();
 
       if (live) {
@@ -2293,6 +2671,11 @@
         if (slowTimer > 0) active.push("⏱️ " + Math.ceil(slowTimer / 60));
         if (shield) active.push("⛄ Shield");
         if (mode === "rush") comicText("👾 ROUND " + rushRound, W / 2, 105, 20, "#ff9ecf");
+        if (mode === "story") {
+          const g = STORY[storyLevel].goal;
+          comicText(storyPhase === "goal" ? "🎯 " + g.text + ": " + Math.min(g.have(), g.need) + "/" + g.need : "👾 Beat the boss!",
+                    W / 2, 105, 18, "#ff9ecf");
+        }
         if (active.length) comicText(active.join("   "), W / 2, H - 60, 20, "#ffffff");
         if (unlockTimer > 0) {
           comicText("NEW PLANE UNLOCKED!", W / 2, 120, 26, "#f2c230");
@@ -2310,22 +2693,30 @@
         if (mode === "rush") {
           comicText("BOSS RUSH", W / 2, 150, 52, "#ff9ecf");
           comicText("Bosses. Nonstop.", W / 2, 200, 30, "#ffffff");
+        } else if (mode === "story") {
+          comicText("STORY MODE", W / 2, 145, 48, "#f2c230");
+          comicText(STORY[storyLevel].title, W / 2, 195, 24, "#ffffff");
         } else {
           comicText("HDBOC", W / 2, 150, 56, "#f2c230");
           comicText("Paper Airplane", W / 2, 200, 34, "#ffffff");
         }
         drawPlaneShape(W / 2, 290, -0.15, 2.4);
+        drawBuddy(W / 2 - 95, 255, 1.8);
         comicText("Flying: " + P().name, W / 2, 380, 24, "#ffffff");
         comicText("Tap or press Space", W / 2, 430, 24, "#ffffff");
-        comicText(mode === "rush" ? "Best Boss Rush: " + rushBest : "Best: " + best(), W / 2, 470, 22, "#f2c230");
+        if (mode === "story") comicText(storyUnlocked > STORY.length ? "🏆 You beat Story Mode!" : "Levels beaten: " + (storyUnlocked - 1) + " of " + STORY.length, W / 2, 470, 22, "#f2c230");
+        else comicText(mode === "rush" ? "Best Boss Rush: " + rushBest : "Best: " + best(), W / 2, 470, 22, "#f2c230");
         const next = nextLocked();
         if (next) comicText("Score 10 to unlock " + next.name + "!", W / 2, 510, 18, "#ffffff");
         if (daily && !daily.done) comicText("📅 " + todaysChallenge().text, W / 2, 545, 17, "#f2c230");
         comicText("🪙 " + wallet + " coins to spend in the shop", W / 2, 588, 16, "#ffffff");
+      } else if (state === "scene") {
+        drawScene();
       } else {
         comicText("CRASH!", W / 2, 200, 60, "#d33a2c");
         comicText("Score: " + score, W / 2, 270, 32, "#ffffff");
-        if (mode === "rush") comicText("Round " + rushRound + " · Best Boss Rush: " + rushBest, W / 2, 310, 22, "#f2c230");
+        if (mode === "story") comicText(STORY[storyLevel].title, W / 2, 310, 22, "#f2c230");
+        else if (mode === "rush") comicText("Round " + rushRound + " · Best Boss Rush: " + rushBest, W / 2, 310, 22, "#f2c230");
         else comicText("Best with " + P().name + ": " + best(), W / 2, 310, 22, "#f2c230");
         if (frame > 30) comicText("Tap to play again", W / 2, 400, 24, "#ffffff");
         if (unlockedName && score >= 10) comicText("You unlocked " + unlockedName + "!", W / 2, 450, 22, "#f2c230");

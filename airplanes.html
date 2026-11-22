@@ -12,6 +12,8 @@
   <link rel="stylesheet" href="style.css">
   <!-- Dark mode (and its button) -->
   <script src="site.js"></script>
+  <!-- In stock / sold out labels (change them in stock.js) -->
+  <script src="stock.js"></script>
 </head>
 
 <body>
@@ -37,7 +39,8 @@
 
     <h2>Our Paper Airplanes</h2>
     <!-- Link to the flying tips page -->
-    <p class="quiz-teaser"><a href="tips.html">✈️ Got a plane? Read our <strong>flying tips</strong>!</a></p>
+    <p class="quiz-teaser"><a href="tips.html">✈️ Got a plane? Read our <strong>flying tips</strong>!</a>
+      · <a href="plane-quiz.html">❓ Take the <strong>Which Plane Are You?</strong> quiz</a></p>
 
     <!-- COMBO DEAL BANNER -->
     <div class="combo-banner">
@@ -49,7 +52,7 @@
     <div class="products">
 
       <!-- Plane 1: The Original -->
-      <div class="card">
+      <div class="card" data-stock="Original">
         <!-- A drawing of a classic dart plane -->
         <svg viewBox="0 0 100 100">
           <polygon points="10,50 90,20 55,85" fill="#1d4e89"/>
@@ -61,7 +64,7 @@
       </div>
 
       <!-- Plane 2: Looper -->
-      <div class="card">
+      <div class="card" data-stock="Looper">
         <!-- A drawing of a plane flying in a loop -->
         <svg viewBox="0 0 100 100">
           <circle cx="50" cy="45" r="30" fill="none" stroke="#6b7280" stroke-width="3" stroke-dasharray="6 5"/>
@@ -74,7 +77,7 @@
       </div>
 
       <!-- Plane 3: Sky Fin -->
-      <div class="card">
+      <div class="card" data-stock="Sky Fin">
         <!-- A drawing of a long, pointy plane shooting upward -->
         <svg viewBox="0 0 100 100">
           <polygon points="92,8 20,62 48,58" fill="#1d4e89"/>
@@ -88,7 +91,7 @@
       </div>
 
       <!-- Plane 4: Sky Fin+ (NEW!) -->
-      <div class="card">
+      <div class="card" data-stock="Sky Fin+">
         <!-- A drawing of an even sleeker arrow plane with a + badge -->
         <svg viewBox="0 0 100 100">
           <polygon points="94,6 26,58 50,55" fill="#1d4e89"/>

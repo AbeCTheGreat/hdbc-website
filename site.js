@@ -36,6 +36,39 @@ document.addEventListener("DOMContentLoaded", function () {
   nav.appendChild(button);
 });
 
+// ===== NEW COMIC COUNTDOWN =====
+// When "The Heroes with Twisted Legs" comes out. Change the date here (year-month-day).
+const NEW_COMIC_DATE = "2026-11-28";
+
+document.addEventListener("DOMContentLoaded", function () {
+  const boxes = document.querySelectorAll(".countdown");
+  if (!boxes.length) return;
+  const parts = NEW_COMIC_DATE.split("-").map(Number);
+  const release = new Date(parts[0], parts[1] - 1, parts[2]);   // midnight at the start of that day
+
+  function tick() {
+    const left = release - new Date();   // milliseconds until it comes out
+    boxes.forEach(function (box) {
+      if (left <= 0) {
+        box.innerHTML = '<span class="countdown-done">🎉 OUT NOW!</span>';
+        return;
+      }
+      const s = Math.floor(left / 1000);
+      const units = [
+        [Math.floor(s / 86400), "days"],
+        [Math.floor(s / 3600) % 24, "hours"],
+        [Math.floor(s / 60) % 60, "min"],
+        [s % 60, "sec"]
+      ];
+      box.innerHTML = units.map(function (u) {
+        return '<span class="countdown-unit"><strong>' + u[0] + "</strong>" + u[1] + "</span>";
+      }).join("");
+    });
+  }
+  tick();
+  setInterval(tick, 1000);
+});
+
 // ===== HOLIDAY SNOW =====
 // Snowflakes gently fall on every page.
 //   "auto" = only from Nov 20 to Jan 10,   "on" = always,   "off" = never
