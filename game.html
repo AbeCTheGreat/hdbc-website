@@ -20,6 +20,7 @@
       <a href="index.html">Home</a>
       <a href="index.html#products">Products</a>
       <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
       <a href="game.html">Game</a>
       <a href="index.html#about">About</a>
       <a href="order.html">Order</a>
@@ -53,6 +54,21 @@
 
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
     <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
+
+    <p class="game-help">🪙 Grab the gold coins for <strong>+1 bonus point</strong> each!</p>
+
+    <!-- HDBOC RECORDS: update these when the boss beats them! -->
+    <div class="records">
+      <h3>🏆 HDBOC Records</h3>
+      <p>Think you can beat the boss? Try it!</p>
+      <table class="records-table">
+        <tr><th>Plane</th><th>Record</th></tr>
+        <tr><td>The Original</td><td>21</td></tr>
+        <tr><td>Looper</td><td>43</td></tr>
+        <tr><td>Sky Fin</td><td>14</td></tr>
+        <tr><td>Sky Fin+</td><td>54</td></tr>
+      </table>
+    </div>
 
     <p class="game-help">Like the game? <a href="airplanes.html">Get a real paper airplane</a> from HDBOC!</p>
   </section>
@@ -96,7 +112,7 @@
     // ----- THE GAME'S MEMORY -----
     let state = "start";      // "start", "playing", or "over"
     let chosen = "original";  // which plane you picked
-    let plane, stacks, clouds, score, frame, speed, loopTimer, unlockTimer, unlockedName;
+    let plane, stacks, coins, pops, clouds, score, frame, speed, loopTimer, unlockTimer, unlockedName;
 
     // Best score for EACH plane, saved in the browser
     let bests = {};
@@ -128,6 +144,8 @@
     function reset() {
       plane = { x: 90, y: H / 2, vy: 0, spin: 0 };
       stacks = [];
+      coins = [];   // gold coins floating between the stacks
+      pops = [];    // little "+1" signs when you grab a coin
       score = 0;
       frame = 0;
       speed = P().speed;
@@ -214,6 +232,10 @@
       plane.y += plane.vy;
 
       if (frame % SPAWN_EVERY === 0) addStack();
+      // Halfway between stacks, sometimes add a coin
+      if (frame % SPAWN_EVERY === Math.floor(SPAWN_EVERY / 2) && Math.random() < 0.7) {
+        coins.push({ x: W, y: 90 + Math.random() * (GROUND - 180) });
+      }
       speed = P().speed + score * 0.03;
 
       stacks.forEach(function (s) {
@@ -225,6 +247,21 @@
         }
       });
       stacks = stacks.filter(function (s) { return s.x > -STACK_WIDTH; });
+
+      // COINS: move them, and grab any the plane touches (+1 point each)
+      coins.forEach(function (c) {
+        c.x -= speed;
+        const dx = c.x - plane.x, dy = c.y - plane.y;
+        if (!c.got && dx * dx + dy * dy < 24 * 24) {
+          c.got = true;
+          score += 1;
+          pops.push({ x: c.x, y: c.y, t: 40 });
+          checkUnlock();
+        }
+      });
+      coins = coins.filter(function (c) { return !c.got && c.x > -20; });
+      pops.forEach(function (p) { p.t--; p.y -= 1; });
+      pops = pops.filter(function (p) { return p.t > 0; });
 
       // Crash checks (the crash box is smaller for Sky Fin+)
       const hw = 16 * P().size;   // half width
@@ -341,6 +378,25 @@
       ctx.restore();
     }
 
+    // A gold HDBOC coin that bobs up and down
+    function drawCoins() {
+      coins.forEach(function (c) {
+        const bob = Math.sin((frame + c.x) / 10) * 4;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y + bob, 13, 0, Math.PI * 2);
+        ctx.fillStyle = "#f2c230";
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#111";
+        ctx.stroke();
+        ctx.fillStyle = "#111";
+        ctx.font = "bold 14px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("H", c.x, c.y + bob + 5);
+      });
+      pops.forEach(function (p) { comicText("+1", p.x, p.y, 22, "#f2c230"); });
+    }
+
     function drawPlane() {
       let tilt = Math.max(-0.5, Math.min(0.9, plane.vy * 0.07));
       if (loopTimer > 0) tilt = -plane.spin;   // spinning backwards = a loop-the-loop!
@@ -373,6 +429,7 @@
     function draw() {
       drawBackground();
       drawStacks();
+      if (state === "playing") drawCoins();
       if (state !== "start") drawPlane();
 
       if (state === "playing") {

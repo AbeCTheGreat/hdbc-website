@@ -636,3 +636,87 @@ a.card:hover {
   font-weight: bold;
   color: var(--dark-blue);
 }
+
+/* Abe's records under the game */
+.records {
+  max-width: 400px;
+  margin: 24px auto;
+  background: #fff6d6;
+  border: 3px solid #f2c230;
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+.records h3 {
+  margin: 0 0 4px;
+  font-size: 24px;
+}
+.records p {
+  margin: 0 0 12px;
+  color: var(--dark-blue);
+}
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.records-table th,
+.records-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f2c230;
+  text-align: left;
+}
+.records-table td:last-child,
+.records-table th:last-child {
+  text-align: right;
+  font-weight: bold;
+}
+
+/* ===== MEET THE CHARACTERS ===== */
+.char-series {
+  text-align: center;
+  font-size: 22px;
+  margin: 40px 0 16px;
+}
+.char-series a {
+  color: var(--blue);
+}
+.characters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+.char-card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+/* Cuts a character out of a big comic picture.
+   Every picture is drawn 220px tall; the width follows the cut-out box. */
+.char-pic {
+  --size: 220px;
+  height: var(--size);
+  width: calc(var(--w) * var(--size) / var(--h));
+  max-width: 100%;
+  margin: 0 auto 12px;
+  background-image: var(--img);
+  background-repeat: no-repeat;
+  background-size: calc(1100 * var(--size) / var(--h)) auto;
+  background-position: calc(var(--x) * var(--size) / var(--h) * -1) calc(var(--y) * var(--size) / var(--h) * -1);
+  border: 3px solid #111;
+  border-radius: 8px;
+  background-color: #fff8e7;
+}
+.char-card h4 {
+  font-size: 24px;
+  margin: 0 0 4px;
+}
+.char-role {
+  margin: 0 0 8px;
+  font-weight: bold;
+  color: #d33a2c;
+}
+.char-card p {
+  color: var(--gray);
+}
