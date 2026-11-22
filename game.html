@@ -88,6 +88,13 @@
       <em id="challenge-status"></em>
     </div>
 
+    <!-- MISSIONS: 3 goals at a time. Finish one for coins and a new one shows up! -->
+    <div class="missions" id="missions">
+      <strong class="missions-title">📋 Missions</strong>
+      <ul id="mission-list"></ul>
+      <p id="mission-count"></p>
+    </div>
+
     <!-- GAME MODE: normal, or Boss Rush -->
     <div class="mode-picker" role="radiogroup" aria-label="Game mode">
       <button type="button" class="mode-choice" data-mode="normal" role="radio">✈️ Normal</button>
@@ -473,7 +480,10 @@
       { id: "dj",        icon: "🎶", name: "DJ",             how: "Pick a song in the jukebox" },
       { id: "turbo",     icon: "⚡", name: "Turbo Charged",  how: "Use 3 turbo boosts in one game" },
       { id: "diver",     icon: "🌊", name: "Deep Diver",     how: "Find the secret underwater world" },
-      { id: "shark",     icon: "🦈", name: "Shark Bait",     how: "Survive the shark" }
+      { id: "shark",     icon: "🦈", name: "Shark Bait",     how: "Survive the shark" },
+      { id: "mission",   icon: "📋", name: "Mission Done",   how: "Finish a mission" },
+      { id: "secret",    icon: "🤫", name: "Secret Agent",   how: "Find the website's secret code" },
+      { id: "advent",    icon: "🎁", name: "Door Opener",    how: "Open a door on the Advent Calendar" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -564,6 +574,7 @@
       { id: "tophat",    type: "hat",  icon: "🎩", name: "Top Hat",       price: 40 },
       { id: "rainbow",   type: "skin", icon: "🌈", name: "Rainbow Skin",  price: 50 },
       { id: "crown",     type: "hat",  icon: "👑", name: "Crown",         price: 75 },
+      { id: "star",      type: "hat",  icon: "🌟", name: "Star Hat",      price: 0, gift: true },   // from the Advent Calendar
       { id: "pup",       type: "buddy", icon: "🐶", name: "Puppy Biscuit", price: 40 },
       { id: "minicop",   type: "buddy", icon: "🚓", name: "Mini Cop Car",  price: 50 },
       { id: "minibug",   type: "buddy", icon: "🦗", name: "Mini Antis",    price: 60 }
@@ -583,6 +594,7 @@
       const box = document.getElementById("shop-items");
       box.innerHTML = "";
       SHOP.forEach(function (item) {
+        if (item.gift && !owned[item.id]) return;   // gifts only show up once you have them
         const card = document.createElement("div");
         const have = !!owned[item.id];
         const wearing = item.type === "hat" ? hat === item.id : item.type === "buddy" ? buddy === item.id : skin === item.id;
@@ -796,6 +808,104 @@
       }
     }
 
+    // ----- MISSIONS -----
+    // You always have 3 missions. Finish one in a game to get its coins,
+    // and a new mission takes its place.
+    //   mode: "rush" = do it in Boss Rush (all the others are in Normal mode)
+    //   ready: only give this mission if it's possible right now
+    let pearlsThisGame = 0;
+    const MISSIONS = [
+      { id: "s20",     text: "Score 20 in one game",           coins: 5,  check: function (g) { return g.score >= 20; } },
+      { id: "s40",     text: "Score 40 in one game",           coins: 10, check: function (g) { return g.score >= 40; } },
+      { id: "s75",     text: "Score 75 in one game",           coins: 20, check: function (g) { return g.score >= 75; } },
+      { id: "c10",     text: "Grab 10 coins in one game",      coins: 8,  check: function (g) { return g.coins >= 10; } },
+      { id: "c20",     text: "Grab 20 coins in one game",      coins: 15, check: function (g) { return g.coins >= 20; } },
+      { id: "p2",      text: "Grab 2 power-ups in one game",   coins: 6,  check: function (g) { return g.powerups >= 2; } },
+      { id: "biscuit", text: "Beat Biscuit (at 50 points)",    coins: 12, check: function (g) { return g.biscuit; } },
+      { id: "cops",    text: "Beat the Not Smart Cops",        coins: 15, check: function (g) { return g.cops; } },
+      { id: "antis",   text: "Beat PrayingAntis",              coins: 25, check: function (g) { return g.antis; } },
+      { id: "snow",    text: "Melt the giant snowman",         coins: 12, check: function (g) { return g.snow; }, ready: function () { return WINTER; } },
+      { id: "bolts",   text: "Dodge 2 lightning bolts",        coins: 8,  check: function (g) { return g.bolts >= 2; } },
+      { id: "portal",  text: "Find the secret portal 🌀",      coins: 15, check: function (g) { return g.water; } },
+      { id: "pearls",  text: "Grab 3 pearls underwater",       coins: 15, check: function (g) { return g.pearls >= 3; }, ready: function () { return !!earned.diver; } },
+      { id: "sharky",  text: "Survive the shark",              coins: 20, check: function (g) { return g.shark; }, ready: function () { return !!earned.diver; } },
+      { id: "loop15",  text: "Score 15 with Looper",           coins: 8,  check: function (g) { return g.plane === "looper" && g.score >= 15; }, ready: function () { return isUnlocked("looper"); } },
+      { id: "fin15",   text: "Score 15 with Sky Fin",          coins: 8,  check: function (g) { return g.plane === "skyfin" && g.score >= 15; }, ready: function () { return isUnlocked("skyfin"); } },
+      { id: "plus30",  text: "Score 30 with Sky Fin+",         coins: 10, check: function (g) { return g.plane === "skyfinplus" && g.score >= 30; }, ready: function () { return isUnlocked("skyfinplus"); } },
+      { id: "turbo2",  text: "Use 2 turbo boosts in one game", coins: 8,  check: function (g) { return g.boosts >= 2; }, ready: function () { return isUnlocked("turbodart"); } },
+      { id: "own10",   text: "Score 10 with a plane you designed", coins: 8, check: function (g) { return g.plane === "custom" && g.score >= 10; } },
+      { id: "rush2",   text: "Reach Round 2 in Boss Rush",     coins: 20, mode: "rush", check: function (g) { return g.round >= 2; } }
+    ];
+    let missions = { active: [], done: 0 };
+    try { missions = JSON.parse(localStorage.getItem("hdboc-missions")) || missions; } catch (e) {}
+    let justDone = null;   // the mission you just finished (shown in green for a bit)
+
+    function saveMissions() {
+      try { localStorage.setItem("hdboc-missions", JSON.stringify(missions)); } catch (e) {}
+    }
+    function findMission(id) {
+      return MISSIONS.find(function (m) { return m.id === id; });
+    }
+    function fillMissions() {
+      missions.active = missions.active.filter(function (id) { return findMission(id); });   // forget old ones
+      while (missions.active.length < 3) {
+        const can = MISSIONS.filter(function (m) {
+          return missions.active.indexOf(m.id) < 0 && m.id !== justDone && (!m.ready || m.ready());
+        });
+        if (!can.length) break;
+        missions.active.push(can[Math.floor(Math.random() * can.length)].id);
+      }
+      saveMissions();
+    }
+    function showMissions() {
+      const list = document.getElementById("mission-list");
+      list.innerHTML = "";
+      if (justDone) {
+        const m = findMission(justDone);
+        const li = document.createElement("li");
+        li.className = "just-done";
+        li.textContent = "✅ Done: " + m.text + " (+" + m.coins + " 🪙)";
+        list.appendChild(li);
+      }
+      missions.active.forEach(function (id) {
+        const m = findMission(id);
+        const li = document.createElement("li");
+        const text = document.createElement("span");
+        text.textContent = (m.mode === "rush" ? "👾 " : "") + m.text;
+        const reward = document.createElement("em");
+        reward.textContent = "+" + m.coins + " 🪙";
+        li.append(text, reward);
+        list.appendChild(li);
+      });
+      document.getElementById("mission-count").textContent = "Missions finished: " + missions.done;
+    }
+    // Runs every frame while you fly
+    function checkMissions() {
+      if (mode === "story") return;
+      const g = {
+        score: score, coins: coinsThisGame, pearls: pearlsThisGame, powerups: powerupsThisGame,
+        boosts: boostsThisGame, bolts: boltsDodged, plane: chosen, water: water > 0,
+        biscuit: mode === "normal" && bossDone, cops: mode === "normal" && copsDone,
+        antis: mode === "normal" && antisDone, snow: mode === "normal" && WINTER && snowDone,
+        shark: sharkDone, round: mode === "rush" ? rushRound : 0
+      };
+      missions.active.slice().forEach(function (id) {
+        const m = findMission(id);
+        if ((m.mode || "normal") !== mode) return;
+        if (!m.check(g)) return;
+        missions.active.splice(missions.active.indexOf(id), 1);
+        missions.done++;
+        wallet += m.coins;
+        try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
+        justDone = id;
+        toasts.push({ text: "📋 Mission done! +" + m.coins + " 🪙", t: 150 });
+        play("unlock");
+        earn("mission");
+        fillMissions();
+        showMissions();
+      });
+    }
+
     const soundButton = document.getElementById("sound-button");
     function showSound() {
       soundButton.textContent = soundOn ? "🔊 Sound on" : "🔇 Sound off";
@@ -852,6 +962,7 @@
       stackCount = 0;
       night = 0;
       coinsThisGame = 0;
+      pearlsThisGame = 0;
       powerupsThisGame = 0;
       toasts = [];       // "Badge earned!" messages
       boss = null;       // no boss yet
@@ -1069,6 +1180,7 @@
       });
 
       if (state !== "playing") return;
+      checkMissions();
 
       // Looper's loop-the-loop: one full spin
       if (loopTimer > 0) {
@@ -1229,6 +1341,7 @@
           c.got = true;
           score += 1;
           coinsThisGame++;
+          if (water > 0.5) pearlsThisGame++;
           wallet++;
           try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
           play("coin");
@@ -2345,6 +2458,18 @@
         ctx.fillRect(-5, -15, 10, 13);
         ctx.fillRect(-8, -2, 16, 2.5);
         ctx.fillStyle = "#d33a2c"; ctx.fillRect(-5, -5, 10, 2.5);
+      } else if (hat === "star") {
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const r = i % 2 === 0 ? 8 : 3.5, a = -Math.PI / 2 + i * Math.PI / 5;
+          ctx.lineTo(Math.cos(a) * r, -7 + Math.sin(a) * r);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        if (frame % 40 < 20) {   // it twinkles!
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath(); ctx.arc(3, -12, 1.3, 0, Math.PI * 2); ctx.fill();
+        }
       } else if (hat === "crown") {
         ctx.fillStyle = "#f2c230";
         ctx.beginPath();
@@ -3020,7 +3145,15 @@
     showBadges();
     pickChallenge();
     showChallenge();
+    fillMissions();
+    showMissions();
     showShop();
+    // Badges you earn on other pages of the website
+    try {
+      if (localStorage.getItem("hdboc-secret") === "found") earn("secret");
+      if (localStorage.getItem("hdboc-advent-opened") === "yes") earn("advent");
+    } catch (e) {}
+    document.addEventListener("hdboc-secret", function () { earn("secret"); });   // typed the code right here!
     loop();
   </script>
 

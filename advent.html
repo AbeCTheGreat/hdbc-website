@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advent Calendar - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- THE ADVENT CALENDAR -->
+  <section>
+    <h2>🎁 HDBOC Advent Calendar</h2>
+    <p class="peek-intro">Open one door every day from December 1 to 24!
+      Behind each door: game coins, a joke, a secret... and something special on the 24th.</p>
+    <p class="advent-status" id="advent-status"></p>
+
+    <!-- The script below fills in the 24 doors -->
+    <div class="advent" id="advent"></div>
+
+    <!-- What's behind the door you just opened -->
+    <div class="advent-surprise" id="surprise" hidden></div>
+
+    <p class="peek-intro">Coins go straight into your wallet in the <a href="game.html">Paper Airplane Game</a>. Spend them in the Coin Shop!</p>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // ===== WHAT'S BEHIND EACH DOOR =====
+    // Door 1 is the first one in the list, door 24 is the last.
+    //   coins: adds game coins to your wallet
+    //   joke:  a joke (q = the question, a = the answer)
+    //   tip:   a secret or a tip
+    //   hat:   the secret Star Hat for the game
+    const DOORS = [
+      { coins: 5 },                                                                                   // 1
+      { joke: { q: "Why did the paper airplane go to the doctor?", a: "It had a bad case of the creases!" } },   // 2
+      { coins: 5 },                                                                                   // 3
+      { tip: "In the game, a snowball ⛄ power-up is a shield. It saves you from one crash!" },         // 4
+      { coins: 8 },                                                                                   // 5
+      { joke: { q: "Knock knock. Who's there? Wing.", a: "Wing who? Wing-le bells, wing-le bells!" } },  // 6
+      { tip: "The Looper flies best when you throw it upside down and underhand." },                    // 7
+      { coins: 8 },                                                                                   // 8
+      { joke: { q: "What's a paper airplane's favorite kind of bagel?", a: "A PLANE bagel!" } },         // 9
+      { coins: 10 },                                                                                  // 10
+      { tip: "🤫 A secret code works on EVERY page of this website. Type the letters H D B O C on your keyboard... (On a phone or tablet: tap the © at the very bottom 5 times fast!)" },   // 11
+      { coins: 20 },                                                                                  // 12
+      { coins: 10 },                                                                                  // 13
+      { joke: { q: "How does Santa send letters super fast?", a: "Paper airplane mail!" } },             // 14
+      { coins: 10 },                                                                                  // 15
+      { tip: "Got the Turbo Dart? Tap twice fast for a TURBO BOOST with double points!" },             // 16
+      { coins: 12 },                                                                                  // 17
+      { joke: { q: "What did the paper airplane say to the desk?", a: "See you later, I'm taking off!" } },   // 18
+      { tip: "After 30 points, watch for a swirly portal 🌀. Fly into it for a secret world!" },         // 19
+      { coins: 12 },                                                                                  // 20
+      { joke: { q: "Why are snowmen bad at flying paper airplanes?", a: "They get cold feet!" } },       // 21
+      { coins: 15 },                                                                                  // 22
+      { tip: "Check the Missions list under the game. Finish missions for extra coins!" },             // 23
+      { hat: true, coins: 25 }                                                                        // 24
+    ];
+
+    // The doors are mixed up on the calendar, like a real advent calendar
+    const SPOTS = [7, 15, 2, 21, 10, 18, 4, 13, 24, 1, 9, 17, 5, 22, 12, 3, 19, 8, 14, 23, 6, 11, 20, 16];
+
+    // ----- You don't need to change anything below this line -----
+
+    const now = new Date();
+    const month = now.getMonth(), day = now.getDate();   // month: 0 = January, 10 = November, 11 = December
+    // Doors open in December. In early January (until Jan 10) you can still open any you missed.
+    const year = month === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const SAVE = "hdboc-advent-" + year;   // a fresh calendar every year
+    function canOpen(n) {
+      if (month === 11) return n <= day;
+      if (month === 0 && day <= 10) return true;
+      return false;
+    }
+
+    let opened = {};
+    try { opened = JSON.parse(localStorage.getItem(SAVE)) || {}; } catch (e) { opened = {}; }
+
+    const status = document.getElementById("advent-status");
+    if (month === 11 || (month === 0 && day <= 10)) {
+      const count = Object.keys(opened).length;
+      status.textContent = count + " of 24 doors opened";
+    } else {
+      const first = new Date(now.getFullYear(), 11, 1);
+      const days = Math.ceil((first - now) / 86400000);
+      status.textContent = "🔒 The doors open on December 1! " + (days === 1 ? "1 day" : days + " days") + " to go.";
+    }
+
+    function iconFor(d) {
+      if (d.hat) return "🌟";
+      if (d.joke) return "😂";
+      if (d.tip) return "🤫";
+      return "🪙";
+    }
+
+    function addCoins(n) {
+      try {
+        const wallet = Number(localStorage.getItem("hdboc-wallet")) || 0;
+        localStorage.setItem("hdboc-wallet", String(wallet + n));
+      } catch (e) {}
+    }
+
+    const surprise = document.getElementById("surprise");
+    function showSurprise(n, fresh) {
+      const d = DOORS[n - 1];
+      surprise.innerHTML = "";
+      const title = document.createElement("h3");
+      title.textContent = "Door " + n + " " + iconFor(d);
+      surprise.appendChild(title);
+      function line(text, cls) {
+        const p = document.createElement("p");
+        p.textContent = text;
+        if (cls) p.className = cls;
+        surprise.appendChild(p);
+      }
+      if (d.hat) line("🌟 You got the secret STAR HAT! Wear it in the game's Coin Shop.", "advent-big");
+      if (d.coins) line("🪙 +" + d.coins + " coins" + (fresh ? " added to your game wallet!" : " (already in your wallet)"), "advent-big");
+      if (d.joke) {
+        line(d.joke.q, "advent-big");
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "sound-button";
+        b.textContent = "Show the answer";
+        b.addEventListener("click", function () { b.replaceWith(Object.assign(document.createElement("p"), { className: "advent-big", textContent: d.joke.a })); });
+        surprise.appendChild(b);
+      }
+      if (d.tip) line(d.tip, "advent-big");
+      surprise.hidden = false;
+    }
+
+    function openDoor(n) {
+      const d = DOORS[n - 1];
+      opened[n] = true;
+      if (d.coins) addCoins(d.coins);
+      if (d.hat) {
+        try {
+          const owned = JSON.parse(localStorage.getItem("hdboc-owned")) || {};
+          owned.star = true;
+          localStorage.setItem("hdboc-owned", JSON.stringify(owned));
+        } catch (e) {}
+      }
+      try {
+        localStorage.setItem(SAVE, JSON.stringify(opened));
+        localStorage.setItem("hdboc-advent-opened", "yes");   // for the game's Advent badge
+      } catch (e) {}
+      status.textContent = Object.keys(opened).length + " of 24 doors opened";
+    }
+
+    const box = document.getElementById("advent");
+    SPOTS.forEach(function (n) {
+      const door = document.createElement("button");
+      door.type = "button";
+      door.className = "advent-door" + (n === 24 ? " big" : "");
+      function draw() {
+        const isOpen = !!opened[n];
+        door.classList.toggle("open", isOpen);
+        door.classList.toggle("locked", !isOpen && !canOpen(n));
+        door.innerHTML = "";
+        const label = document.createElement("span");
+        label.textContent = isOpen ? iconFor(DOORS[n - 1]) : n;
+        door.appendChild(label);
+        door.setAttribute("aria-label", "Door " + n + (isOpen ? " (opened)" : canOpen(n) ? "" : " (locked)"));
+      }
+      door.addEventListener("click", function () {
+        if (opened[n]) { showSurprise(n, false); return; }
+        if (!canOpen(n)) {
+          surprise.innerHTML = "";
+          const p = document.createElement("p");
+          p.className = "advent-big";
+          p.textContent = "🔒 No peeking! Door " + n + " opens on December " + n + ".";
+          surprise.appendChild(p);
+          surprise.hidden = false;
+          door.classList.remove("shake");
+          void door.offsetWidth;   // restarts the shake animation
+          door.classList.add("shake");
+          return;
+        }
+        openDoor(n);
+        draw();
+        showSurprise(n, true);
+      });
+      draw();
+      box.appendChild(door);
+    });
+  </script>
+
+</body>
+</html>

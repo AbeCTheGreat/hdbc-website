@@ -97,3 +97,65 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   document.body.appendChild(snow);
 });
+
+// ===== SECRET CODE =====
+// Type H D B O C on any page (or tap the © at the bottom 5 times fast)
+// and a flock of paper airplanes flies across the screen!
+const SECRET_CODE = "hdboc";
+
+function secretFlock() {
+  try { localStorage.setItem("hdboc-secret", "found"); } catch (e) {}   // for the game's Secret Agent badge
+  const old = document.querySelector(".secret-flock");
+  if (old) return;   // the planes are already flying
+  const calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const message = document.createElement("div");
+  message.className = "secret-message";
+  message.textContent = "🤫 You found the secret code! ✈️";
+  document.body.appendChild(message);
+  setTimeout(function () { message.remove(); }, 4000);
+  if (calm) return;   // no flying planes for people who turned animations off
+
+  const flock = document.createElement("div");
+  flock.className = "secret-flock";
+  flock.setAttribute("aria-hidden", "true");
+  const colors = ["#1d4e89", "#c8352a", "#2f8a46", "#f2c230", "#7a4ab8"];
+  for (let i = 0; i < 14; i++) {
+    const c = colors[i % colors.length];
+    flock.insertAdjacentHTML("beforeend",
+      '<svg viewBox="0 0 100 60"><polygon points="0,30 100,0 55,60" fill="' + c + '" stroke="#111" stroke-width="3"/>' +
+      '<polygon points="100,0 40,38 55,60" fill="#ffffff" stroke="#111" stroke-width="3"/></svg>');
+    const plane = flock.lastChild;
+    plane.style.top = 5 + Math.random() * 80 + "%";
+    plane.style.width = 40 + Math.random() * 40 + "px";
+    plane.style.animationDuration = 2.5 + Math.random() * 2 + "s";
+    plane.style.animationDelay = Math.random() * 1.5 + "s";
+  }
+  document.body.appendChild(flock);
+  setTimeout(function () { flock.remove(); }, 6500);
+  document.dispatchEvent(new Event("hdboc-secret"));
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Typing the code
+  let typed = "";
+  document.addEventListener("keydown", function (e) {
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;   // not while typing in a box
+    if (!e.key || e.key.length !== 1) return;
+    typed = (typed + e.key.toLowerCase()).slice(-SECRET_CODE.length);
+    if (typed === SECRET_CODE) { typed = ""; secretFlock(); }
+  });
+
+  // Tapping the © 5 times fast (for phones and tablets)
+  const footer = document.querySelector("footer");
+  if (!footer) return;
+  let taps = 0, lastTap = 0;
+  footer.addEventListener("click", function (e) {
+    if (e.target.closest("a")) return;   // links still work normally
+    const now = Date.now();
+    taps = now - lastTap < 600 ? taps + 1 : 1;
+    lastTap = now;
+    if (taps >= 5) { taps = 0; secretFlock(); }
+  });
+});
