@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Which HDBOC Character Are You? - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- THE QUIZ -->
+  <section>
+    <a class="back" href="characters.html">&larr; Back to the characters</a>
+    <h2>Which HDBOC Character Are You?</h2>
+    <p class="peek-intro">Answer 6 questions to find out!</p>
+
+    <!-- The script below puts the questions (and your answer) in here -->
+    <div class="quiz" id="quiz" aria-live="polite"></div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <!-- JAVASCRIPT: the quiz -->
+  <script>
+    // ----- THE CHARACTERS -----
+    // pic = where to cut them out of a cover (same numbers as characters.html)
+    const CHARACTERS = {
+      barry: {
+        name: "Barry", comic: "Not Smart Cops", peek: "cops",
+        pic: "--img: url(not-smart-cops.png); --x: 215; --y: 845; --w: 230; --h: 635;",
+        alt: "Barry, a tall police officer with a mustache",
+        text: "You're super confident and you always have a plan. It doesn't always WORK, but you always have one! Just watch out for mosquitoes."
+      },
+      lou: {
+        name: "Lou", comic: "Not Smart Cops", peek: "cops",
+        pic: "--img: url(not-smart-cops.png); --x: 590; --y: 960; --w: 330; --h: 520;",
+        alt: "Lou, a round police officer",
+        text: "You're chill and easygoing. You let other people do the hard stuff, but everyone trusts you with the important things (like the loot bag)."
+      },
+      antis: {
+        name: "PrayingAntis", comic: "PrayingAntis", peek: "antis",
+        pic: "--img: url(praying-antis.png); --x: 290; --y: 640; --w: 520; --h: 820;",
+        alt: "PrayingAntis, a superhero with a mantis body, an ant head, a blue mask and a red cape",
+        text: "You're brave and you love to help people. When there's trouble, you jump right in. Just be careful what you bite!"
+      },
+      biscuit: {
+        name: "Biscuit", comic: "PrayingAntis", peek: "antis",
+        pic: "--img: url(peek-antis.png); --x: 415; --y: 425; --w: 100; --h: 80;",
+        alt: "Biscuit, a small brown lab dog",
+        text: "You love naps, snacks, and chasing things. You seem sleepy, but there's something wild inside you waiting to come out..."
+      },
+      gus: {
+        name: "Gus", comic: "Not Smart Sports: Baseball Edition", peek: "sports",
+        pic: "--img: url(not-smart-sports.png); --x: 355; --y: 890; --w: 240; --h: 590;",
+        alt: "Gus, a baseball player in a pinstripe uniform",
+        text: "You dream BIG and nothing stops you. Not on the team? Doesn't matter. You're going to the World Series anyway!"
+      },
+      ray: {
+        name: "Ray", comic: "Not Smart Sports: Baseball Edition", peek: "sports",
+        pic: "--img: url(not-smart-sports.png); --x: 730; --y: 1060; --w: 230; --h: 440;",
+        alt: "Ray, a baseball player holding a tray of bagels",
+        text: "You're the best friend anyone could have. You're loyal, kind, and you always bring snacks to share."
+      }
+    };
+
+    // ----- THE QUESTIONS -----
+    // Each answer gives a point to one character. Most points wins!
+    const QUESTIONS = [
+      { q: "What's your favorite snack?", answers: [
+        ["🥯 Bagels", "ray"], ["🍩 Donuts", "lou"], ["🦴 Dog treats", "biscuit"], ["🌶️ Super spicy chips", "antis"] ] },
+      { q: "What do you do on a Saturday?", answers: [
+        ["⚾ Play baseball", "gus"], ["😴 Take a big nap", "biscuit"], ["🦸 Save the day", "antis"], ["📣 Tell everyone how great I am", "barry"] ] },
+      { q: "Your friends say you're...", answers: [
+        ["🤝 Loyal", "ray"], ["😎 Confident (maybe TOO confident)", "barry"], ["💪 Determined", "gus"], ["🛋️ Super chill", "lou"] ] },
+      { q: "A mosquito lands on you. What do you do?", answers: [
+        ["👋 Swat it... and miss", "barry"], ["🙋 Make my partner deal with it", "lou"], ["🔥 Bite it. It catches fire.", "antis"], ["🐕 Chase it around the room", "biscuit"] ] },
+      { q: "What's your biggest dream?", answers: [
+        ["🏆 Win the World Series", "gus"], ["🥯 Share bagels with the whole world", "ray"], ["💰 Be in charge of the loot bag", "lou"], ["🌆 Be the city's greatest hero", "antis"] ] },
+      { q: "Pick a superpower:", answers: [
+        ["🥸 The most perfect mustache ever", "barry"], ["☢️ A glowing toxic eye", "biscuit"], ["💥 A mega home-run swing", "gus"], ["🙏 Getting anything just by asking nicely", "ray"] ] }
+    ];
+
+    const quiz = document.getElementById("quiz");
+    let step = 0;        // which question we're on
+    let points = {};     // how many points each character has
+    let lastPick = "";   // if there's a tie, the last answer you picked wins
+
+    function start() {
+      step = 0;
+      points = {};
+      lastPick = "";
+      showQuestion();
+    }
+
+    function showQuestion() {
+      const item = QUESTIONS[step];
+      quiz.innerHTML = "";
+
+      const progress = document.createElement("p");
+      progress.className = "quiz-progress";
+      progress.textContent = "Question " + (step + 1) + " of " + QUESTIONS.length;
+      const bar = document.createElement("div");
+      bar.className = "quiz-bar";
+      const fill = document.createElement("div");
+      fill.style.width = (step / QUESTIONS.length * 100) + "%";
+      bar.appendChild(fill);
+
+      const question = document.createElement("h3");
+      question.textContent = item.q;
+
+      const answers = document.createElement("div");
+      answers.className = "quiz-answers";
+      item.answers.forEach(function (a) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "quiz-answer";
+        b.textContent = a[0];
+        b.addEventListener("click", function () { pick(a[1]); });
+        answers.appendChild(b);
+      });
+
+      quiz.append(progress, bar, question, answers);
+      answers.querySelector("button").focus({ preventScroll: true });
+    }
+
+    function pick(who) {
+      points[who] = (points[who] || 0) + 1;
+      lastPick = who;
+      step++;
+      if (step < QUESTIONS.length) showQuestion();
+      else showResult();
+    }
+
+    function showResult() {
+      // Find the character with the most points (ties go to your last answer)
+      let winner = lastPick;
+      Object.keys(points).forEach(function (who) {
+        if (points[who] > points[winner]) winner = who;
+      });
+      const c = CHARACTERS[winner];
+
+      quiz.innerHTML = "";
+      const box = document.createElement("div");
+      box.className = "quiz-result";
+
+      const label = document.createElement("p");
+      label.className = "quiz-progress";
+      label.textContent = "You are...";
+      const pic = document.createElement("div");
+      pic.className = "char-pic";
+      pic.setAttribute("role", "img");
+      pic.setAttribute("aria-label", c.alt);
+      pic.setAttribute("style", c.pic);
+      const name = document.createElement("h3");
+      name.textContent = c.name + "!";
+      const from = document.createElement("p");
+      from.className = "char-role";
+      from.textContent = "From " + c.comic;
+      const text = document.createElement("p");
+      text.textContent = c.text;
+
+      const buttons = document.createElement("div");
+      buttons.className = "quiz-buttons";
+      const read = document.createElement("a");
+      read.className = "button";
+      read.href = "sneak-peeks.html#" + c.peek;
+      read.textContent = "Read about " + c.name;
+      const again = document.createElement("button");
+      again.type = "button";
+      again.className = "quiz-again";
+      again.textContent = "🔄 Take it again";
+      again.addEventListener("click", start);
+      buttons.append(read, again);
+
+      box.append(label, pic, name, from, text, buttons);
+      quiz.appendChild(box);
+    }
+
+    start();
+  </script>
+
+</body>
+</html>
