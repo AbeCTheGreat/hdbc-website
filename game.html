@@ -54,9 +54,11 @@
 
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
     <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
+    <button type="button" id="sound-button" class="sound-button" aria-pressed="true">🔊 Sound on</button>
 
     <p class="game-help">🪙 Grab the gold coins for <strong>+1 bonus point</strong> each!<br>
-      Watch for rare power-ups: 🧲 <strong>Magnet</strong> pulls coins to you, ⏱️ <strong>Slow-Mo</strong> slows everything down.</p>
+      Watch for rare power-ups: 🧲 <strong>Magnet</strong> pulls coins to you, ⏱️ <strong>Slow-Mo</strong> slows everything down.<br>
+      🌙 Make it to <strong>20 points</strong> and night falls!</p>
 
     <!-- HDBOC RECORDS: update these when the boss beats them! -->
     <div class="records">
@@ -115,6 +117,90 @@
     let chosen = "original";  // which plane you picked
     let plane, stacks, coins, pops, clouds, score, frame, speed, loopTimer, unlockTimer, unlockedName;
     let powerups, magnetTimer, slowTimer, spawnClock, stackCount;
+    let night = 0;   // 0 = daytime, 1 = full night (it turns night after 20 points)
+
+    // ----- SOUND EFFECTS -----
+    // We don't use sound files. The computer makes the sounds itself with the
+    // Web Audio API: little beeps and whooshes built from waves and static.
+    let audio = null;
+    let soundOn = true;
+    try { soundOn = localStorage.getItem("hdboc-sound") !== "off"; } catch (e) {}
+
+    function startAudio() {
+      // Browsers only allow sound after you click or tap, so we start it then
+      if (!audio) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audio = new AC();
+      }
+      if (audio && audio.state === "suspended") audio.resume();
+    }
+
+    // A beep: wave type, start pitch, end pitch, how long, how loud
+    function beep(type, from, to, time, volume) {
+      if (!soundOn || !audio) return;
+      const t = audio.currentTime;
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(from, t);
+      osc.frequency.exponentialRampToValueAtTime(to, t + time);
+      gain.gain.setValueAtTime(volume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + time);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(t);
+      osc.stop(t + time);
+    }
+
+    // A whoosh or crunch: a burst of static, filtered to sound soft or rough
+    function noise(time, volume, filterFreq) {
+      if (!soundOn || !audio) return;
+      const t = audio.currentTime;
+      const length = Math.floor(audio.sampleRate * time);
+      const buffer = audio.createBuffer(1, length, audio.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+      const src = audio.createBufferSource();
+      src.buffer = buffer;
+      const filter = audio.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = filterFreq;
+      const gain = audio.createGain();
+      gain.gain.setValueAtTime(volume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + time);
+      src.connect(filter).connect(gain).connect(audio.destination);
+      src.start(t);
+    }
+
+    // Plays notes one after another (for little tunes)
+    function tune(type, notes, gap, volume) {
+      notes.forEach(function (f, i) {
+        setTimeout(function () { beep(type, f, f, gap / 1000 + 0.04, volume); }, i * gap);
+      });
+    }
+
+    const SOUNDS = {
+      flap:    function () { noise(0.12, 0.25, 1800); },
+      point:   function () { beep("triangle", 660, 700, 0.08, 0.12); },
+      coin:    function () { tune("square", [988, 1319], 60, 0.08); },
+      powerup: function () { tune("triangle", [523, 659, 784, 1047], 70, 0.15); },
+      crash:   function () { noise(0.4, 0.5, 700); beep("sawtooth", 200, 50, 0.4, 0.2); },
+      unlock:  function () { tune("square", [523, 659, 784, 659, 1047], 110, 0.1); },
+      night:   function () { beep("sine", 440, 220, 0.8, 0.15); }
+    };
+    function play(name) { if (soundOn && audio) SOUNDS[name](); }
+
+    const soundButton = document.getElementById("sound-button");
+    function showSound() {
+      soundButton.textContent = soundOn ? "🔊 Sound on" : "🔇 Sound off";
+      soundButton.setAttribute("aria-pressed", soundOn ? "true" : "false");
+    }
+    soundButton.addEventListener("click", function () {
+      soundOn = !soundOn;
+      try { localStorage.setItem("hdboc-sound", soundOn ? "on" : "off"); } catch (e) {}
+      startAudio();
+      showSound();
+    });
+    showSound();
 
     // ----- POWER-UPS -----
     const POWER_TIME = 300;   // how long a power-up lasts (300 frames = about 5 seconds)
@@ -156,6 +242,7 @@
       slowTimer = 0;
       spawnClock = 0;
       stackCount = 0;
+      night = 0;
       score = 0;
       frame = 0;
       speed = P().speed;
@@ -218,6 +305,7 @@
         return;
       }
       plane.vy = P().flap;
+      play("flap");
       if (P().loops) { loopTimer = 30; plane.spin = 0; }   // Looper: loop-the-loop!
     }
 
@@ -237,6 +325,11 @@
         plane.spin += (Math.PI * 2) / 30;
       }
       if (unlockTimer > 0) unlockTimer--;
+      // After 20 points, the sky slowly turns to night
+      if (score >= 20 && night < 1) {
+        if (night === 0) play("night");
+        night = Math.min(1, night + 1 / 180);
+      }
 
       plane.vy += P().gravity;
       plane.y += plane.vy;
@@ -269,6 +362,7 @@
         if (!s.scored && s.x + STACK_WIDTH < plane.x) {
           s.scored = true;
           score += P().points;
+          play("point");
           checkUnlock();
         }
       });
@@ -287,6 +381,7 @@
         if (!c.got && dx * dx + dy * dy < 24 * 24) {
           c.got = true;
           score += 1;
+          play("coin");
           pops.push({ x: c.x, y: c.y, t: 40 });
           checkUnlock();
         }
@@ -298,6 +393,7 @@
         const dx = u.x - plane.x, dy = u.y - plane.y;
         if (!u.got && dx * dx + dy * dy < 28 * 28) {
           u.got = true;
+          play("powerup");
           if (u.type === "magnet") magnetTimer = POWER_TIME;
           else slowTimer = POWER_TIME;
           pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : "SLOW-MO!" });
@@ -328,12 +424,14 @@
         try { localStorage.setItem("hdboc-bests", JSON.stringify(bests)); } catch (e) {}
         unlockedName = next.name;
         unlockTimer = 150;
+        play("unlock");
         showChosen();
       }
     }
 
     function crash() {
       state = "over";
+      play("crash");
       frame = 0;
       if (score > best()) {
         bests[chosen] = score;
@@ -342,18 +440,53 @@
     }
 
     // ----- DRAW: paint the picture for this frame -----
+
+    // Mixes two colors: amount 0 = all of color a, 1 = all of color b
+    function mix(a, b, amount) {
+      const ca = [1, 3, 5].map(function (i) { return parseInt(a.slice(i, i + 2), 16); });
+      const cb = [1, 3, 5].map(function (i) { return parseInt(b.slice(i, i + 2), 16); });
+      return "rgb(" + ca.map(function (v, i) { return Math.round(v + (cb[i] - v) * amount); }).join(",") + ")";
+    }
+
+    // Where the stars go (made once, so they don't jump around)
+    const STARS = [];
+    for (let i = 0; i < 45; i++) {
+      STARS.push({ x: Math.random() * W, y: Math.random() * (GROUND - 120), s: Math.random() < 0.3 ? 3 : 2 });
+    }
     function drawBackground() {
+      // Mix between the day sky and the night sky
       const sky = ctx.createLinearGradient(0, 0, 0, H);
-      sky.addColorStop(0, "#7cc4f2");
-      sky.addColorStop(1, "#d6effc");
+      sky.addColorStop(0, mix("#7cc4f2", "#0b1638", night));
+      sky.addColorStop(1, mix("#d6effc", "#2a3d6b", night));
       ctx.fillStyle = sky;
       ctx.fillRect(0, 0, W, H);
+
+      if (night > 0) {
+        // Twinkling stars
+        for (let i = 0; i < STARS.length; i++) {
+          const st = STARS[i];
+          const twinkle = 0.6 + 0.4 * Math.sin(frame / 20 + i);
+          ctx.fillStyle = "rgba(255,255,255," + (night * twinkle) + ")";
+          ctx.fillRect(st.x, st.y, st.s, st.s);
+        }
+        // The moon, with a "bite" taken out to make a crescent
+        ctx.globalAlpha = night;
+        ctx.fillStyle = "#fff6c9";
+        ctx.beginPath();
+        ctx.arc(320, 80, 28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = mix("#7cc4f2", "#0b1638", night);
+        ctx.beginPath();
+        ctx.arc(334, 72, 24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
       if (state === "playing" && slowTimer > 0) {
         ctx.fillStyle = "rgba(80, 60, 160, 0.18)";   // purple-ish tint during slow-mo
         ctx.fillRect(0, 0, W, H);
       }
 
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = mix("#ffffff", "#56688f", night);   // clouds get darker at night
       clouds.forEach(function (c) {
         ctx.beginPath();
         ctx.arc(c.x, c.y, 22 * c.s, 0, Math.PI * 2);
@@ -362,7 +495,7 @@
         ctx.fill();
       });
 
-      ctx.fillStyle = "#4f9a3a";
+      ctx.fillStyle = mix("#4f9a3a", "#1f4a2a", night);
       ctx.fillRect(0, GROUND, W, H - GROUND);
       ctx.fillStyle = "#111";
       ctx.fillRect(0, GROUND, W, 4);
@@ -560,6 +693,7 @@
     // ----- CONTROLS -----
     canvas.addEventListener("pointerdown", function (e) {
       e.preventDefault();
+      startAudio();
       flap();
     });
     document.addEventListener("keydown", function (e) {
@@ -567,6 +701,7 @@
       if (e.target.closest && e.target.closest(".plane-choice")) return;
       if (e.code === "Space" || e.code === "ArrowUp") {
         e.preventDefault();   // stops the page from scrolling when you press space
+        startAudio();
         flap();
       }
     });

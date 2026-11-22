@@ -777,3 +777,22 @@ a.card:hover {
 @media (max-width: 480px) {
   .coming-soon-box { flex-direction: column; text-align: center; }
 }
+
+/* Sound on/off button under the game */
+.sound-button {
+  font: inherit;
+  font-weight: bold;
+  padding: 8px 16px;
+  border: 2px solid var(--dark-blue);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--dark-blue);
+  cursor: pointer;
+}
+.sound-button:hover {
+  background: var(--light-gray);
+}
+.sound-button:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 2px;
+}
