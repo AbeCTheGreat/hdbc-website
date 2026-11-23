@@ -52,7 +52,7 @@
 
   <script>
     // How many badges there are in the game (change this when you add more badges)
-    const TOTAL_BADGES = 36;
+    const TOTAL_BADGES = 39;
 
     const PLANES = {
       original: "The Original", looper: "Looper", skyfin: "Sky Fin",
@@ -124,6 +124,7 @@
       ["🏅", Object.keys(badges).length + " / " + TOTAL_BADGES, "badges"],
       ["📋", missions.done || 0, "missions done"],
       ["📅", Number(load("hdboc-daily-count", 0)) || 0, "daily challenges"],
+      ["🔥", (load("hdboc-login", {}).best || 0) + " days", "best daily streak"],
       ["📖", storyDone + " / 5", "story levels"],
       ["👾", Number(load("hdboc-rush-best", 0)) || 0, "Boss Rush best"],
       ["🛒", Object.keys(owned).length, "shop items"],

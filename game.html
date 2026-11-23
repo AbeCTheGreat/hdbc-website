@@ -81,6 +81,14 @@
     <h3 class="picker-title">🎨 Skins</h3>
     <div class="skin-picker" id="skin-picker" role="radiogroup" aria-label="Choose your plane's skin"></div>
 
+    <!-- DAILY REWARD: free coins every day. Come back days in a row for bigger rewards! -->
+    <div class="daily-reward" id="daily-reward">
+      <strong class="missions-title">🎁 Daily Reward</strong>
+      <div class="reward-days" id="reward-days"></div>
+      <p id="reward-text"></p>
+      <button type="button" class="button" id="claim-reward" hidden></button>
+    </div>
+
     <!-- DAILY CHALLENGE: a new goal every day -->
     <div class="challenge" id="challenge">
       <strong>📅 Today's Challenge:</strong>
@@ -508,7 +516,10 @@
       { id: "newyear",   icon: "🎆", name: "Happy New Year", how: "Play during New Year's week" },
       { id: "lava",      icon: "🌋", name: "Lava Lander",    how: "Find the secret volcano world" },
       { id: "rocks",     icon: "🪨", name: "Rock Dodger",    how: "Survive the volcano eruption" },
-      { id: "ruby",      icon: "💎", name: "Ruby Rich",      how: "Grab 5 rubies in one game" }
+      { id: "ruby",      icon: "💎", name: "Ruby Rich",      how: "Grab 5 rubies in one game" },
+      { id: "daily",     icon: "🎁", name: "Daily Visitor",  how: "Claim a daily reward" },
+      { id: "streak3",   icon: "🔥", name: "On Fire",        how: "Come back 3 days in a row" },
+      { id: "streak7",   icon: "📆", name: "Full Week",      how: "Come back 7 days in a row" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -3677,6 +3688,70 @@
       }
       earn("newyear");
     }
+    // ----- DAILY REWARD -----
+    // Coins for each day of your streak. After day 7 it starts over at day 1 (but your streak keeps going!)
+    const REWARDS = [3, 5, 8, 10, 12, 15, 25];
+    let login = { last: "", streak: 0, best: 0 };
+    try { login = JSON.parse(localStorage.getItem("hdboc-login")) || login; } catch (e) {}
+    function dayKey(d) { return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+    const todayKey = dayKey(new Date());
+    const now0 = new Date();
+    const yesterdayKey = dayKey(new Date(now0.getFullYear(), now0.getMonth(), now0.getDate() - 1));
+    function streakBadges() {
+      if (login.best >= 1) earn("daily");
+      if (login.best >= 3) earn("streak3");
+      if (login.best >= 7) earn("streak7");
+    }
+    function showReward() {
+      const claimed = login.last === todayKey;
+      // the streak you're on (or the one you'll be on after you claim today)
+      const streak = claimed ? login.streak : (login.last === yesterdayKey ? login.streak + 1 : 1);
+      const spot = (streak - 1) % 7;   // which of the 7 days is today
+      const days = document.getElementById("reward-days");
+      days.innerHTML = "";
+      REWARDS.forEach(function (coins, i) {
+        const d = document.createElement("div");
+        d.className = "reward-day" + (i < spot || (i === spot && claimed) ? " got" : "") + (i === spot ? " today" : "");
+        const name = document.createElement("span");
+        name.textContent = "Day " + (i + 1);
+        const amount = document.createElement("strong");
+        amount.textContent = i < spot || (i === spot && claimed) ? "✅" : (i === 6 ? "🎉" : "") + coins;
+        d.append(name, amount);
+        days.appendChild(d);
+      });
+      const text = document.getElementById("reward-text");
+      const button = document.getElementById("claim-reward");
+      if (claimed) {
+        text.textContent = "🔥 " + login.streak + "-day streak! Come back tomorrow for " + REWARDS[login.streak % 7] + " more coins.";
+        button.hidden = true;
+      } else {
+        text.textContent = streak > 1 ? "🔥 You're on a " + (streak - 1) + "-day streak. Keep it going!"
+                         : login.last ? "Your streak started over. Come back every day to make it grow!"
+                         : "Come back every day. The rewards get bigger!";
+        button.textContent = "Claim +" + REWARDS[spot] + " 🪙";
+        button.hidden = false;
+      }
+    }
+    document.getElementById("claim-reward").addEventListener("click", function () {
+      if (login.last === todayKey) return;
+      login.streak = login.last === yesterdayKey ? login.streak + 1 : 1;
+      login.last = todayKey;
+      login.best = Math.max(login.best || 0, login.streak);
+      const coins = REWARDS[(login.streak - 1) % 7];
+      wallet += coins;
+      try {
+        localStorage.setItem("hdboc-wallet", String(wallet));
+        localStorage.setItem("hdboc-login", JSON.stringify(login));
+      } catch (e) {}
+      startAudio();
+      play("unlock");
+      showShop();
+      showReward();
+      streakBadges();
+    });
+    showReward();
+    streakBadges();
+
     // Badges you earn on other pages of the website
     try {
       if (localStorage.getItem("hdboc-secret") === "found") earn("secret");

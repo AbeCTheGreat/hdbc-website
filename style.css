@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 36 badges = 12 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 39 badges = 13 neat rows of 3 */
   gap: 10px;
 }
 .badge {
@@ -2266,4 +2266,55 @@ tr.sold-out td {
   .coloring-body .color-stack {
     max-width: 100%;
   }
+}
+
+/* ===== DAILY REWARD (in the game) ===== */
+.daily-reward {
+  max-width: 400px;
+  margin: 0 auto 12px;
+  padding: 12px 16px;
+  background: var(--cream);
+  border: 3px solid #e0a800;
+  border-radius: 12px;
+  text-align: center;
+}
+.reward-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.reward-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--gray);
+}
+.reward-day strong {
+  font-size: 15px;
+  color: var(--text);
+}
+.reward-day.got {
+  background: rgba(47, 138, 70, 0.15);
+}
+.reward-day.today {
+  border-color: #e0a800;
+  box-shadow: 0 0 0 2px #e0a800;
+}
+.daily-reward p {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+.daily-reward .button {
+  margin-top: 8px;
+  font: inherit;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+}
+.daily-reward .button[hidden] {
+  display: none;   /* hides the Claim button after you claim */
 }
