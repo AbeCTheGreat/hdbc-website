@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 33 badges = 11 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 36 badges = 12 neat rows of 3 */
   gap: 10px;
 }
 .badge {
@@ -2194,4 +2194,76 @@ tr.sold-out td {
   max-width: 640px;
   margin: 24px auto 8px;
   text-align: center;
+}
+
+/* ===== COLORING PAGES ===== */
+.color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.color-swatch {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid #111;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.color-swatch.on {
+  box-shadow: 0 0 0 3px var(--surface), 0 0 0 6px var(--text);
+}
+.color-swatch:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 4px;
+}
+.crayon-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: bold;
+}
+/* Two canvases on top of each other: colors underneath, black lines on top */
+.color-stack {
+  position: relative;
+  max-width: 600px;
+  margin: 8px auto 12px;
+  aspect-ratio: 1 / 1;
+  border: 3px solid #111;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.color-stack canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+#paint {
+  touch-action: none;
+}
+#lines {
+  pointer-events: none;   /* clicks go through to the color canvas */
+}
+/* Printing: just the picture */
+@media print {
+  .coloring-body header,
+  .coloring-body footer,
+  .coloring-body h2,
+  .coloring-body .peek-intro,
+  .coloring-body .maker-row,
+  .coloring-body .maker-tools,
+  .coloring-body .hint,
+  .coloring-body .theme-button,
+  .coloring-body .new-year-bar {
+    display: none !important;
+  }
+  .coloring-body .maker {
+    box-shadow: none;
+    padding: 0;
+  }
+  .coloring-body .color-stack {
+    max-width: 100%;
+  }
 }

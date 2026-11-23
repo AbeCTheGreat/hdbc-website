@@ -149,7 +149,7 @@
       🤫 And if you make it to <strong>200</strong>... you'll find a secret.<br>
       👾 <strong>Boss Rush:</strong> no stacks, just bosses, one after another. Each round gets faster!<br>
       ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, a giant snowman at 75 points, and a sneaky gift thief at 125!<br>
-      🌀 Keep your eyes open after 30 points... a secret portal might show up!<br>
+      🌀 Keep your eyes open after 30 points... a secret portal might show up! There are <strong>two</strong> secret worlds to find.<br>
       📖 <strong>Story mode:</strong> 5 levels starring the HDBOC characters. Can you finish the story?<br>
       🐶 Buy a <strong>flying buddy</strong> in the Coin Shop. It flies next to you and grabs coins!</p>
 
@@ -298,6 +298,7 @@
     let bandit = null, banditDone = false, banditCaught = false, ammo = [], throws = [];   // Bandit the gift thief (winter)
     let fireworks = [];   // New Year fireworks
     let water = 0, portal = null, shark = null, sharkDone = false, waterScore = 0;   // the secret underwater world
+    let lava = 0, lavaScore = 0, erupt = null, eruptDone = false, rocks = [], rocksDodged = 0;   // the secret VOLCANO world
 
     // ----- SOUND EFFECTS -----
     // We don't use sound files. The computer makes the sounds itself with the
@@ -410,6 +411,7 @@
       if (song !== "auto") return SONGS[song];
       if (space > 0) return SONGS.space;
       if (water > 0) return SONGS.night;
+      if (lava > 0) return SONGS.spooky;
       if (night > 0.5) return SONGS.night;
       if (WINTER) return SONGS.holiday;
       return SONGS.day;
@@ -503,7 +505,10 @@
       { id: "advent",    icon: "🎁", name: "Door Opener",    how: "Open a door on the Advent Calendar" },
       { id: "bandit",    icon: "🦝", name: "Gift Saver",     how: "Get your coins back from Bandit" },
       { id: "upgrade",   icon: "⬆️", name: "Upgraded",       how: "Buy an upgrade in the Coin Shop" },
-      { id: "newyear",   icon: "🎆", name: "Happy New Year", how: "Play during New Year's week" }
+      { id: "newyear",   icon: "🎆", name: "Happy New Year", how: "Play during New Year's week" },
+      { id: "lava",      icon: "🌋", name: "Lava Lander",    how: "Find the secret volcano world" },
+      { id: "rocks",     icon: "🪨", name: "Rock Dodger",    how: "Survive the volcano eruption" },
+      { id: "ruby",      icon: "💎", name: "Ruby Rich",      how: "Grab 5 rubies in one game" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -541,6 +546,7 @@
       if (boostsThisGame >= 3) earn("turbo");
       if (skin !== "classic" && score >= 1) earn("skin");
       if (boltsDodged >= 3) earn("storm");
+      if (rubiesThisGame >= 5) earn("ruby");
       if (chosen === "custom" && score >= 1) earn("designer");
       checkChallenge();
     }
@@ -917,7 +923,7 @@
     // and a new mission takes its place.
     //   mode: "rush" = do it in Boss Rush (all the others are in Normal mode)
     //   ready: only give this mission if it's possible right now
-    let pearlsThisGame = 0;
+    let pearlsThisGame = 0, rubiesThisGame = 0;
     const MISSIONS = [
       { id: "s20",     text: "Score 20 in one game",           coins: 5,  check: function (g) { return g.score >= 20; } },
       { id: "s40",     text: "Score 40 in one game",           coins: 10, check: function (g) { return g.score >= 40; } },
@@ -939,6 +945,9 @@
       { id: "turbo2",  text: "Use 2 turbo boosts in one game", coins: 8,  check: function (g) { return g.boosts >= 2; }, ready: function () { return isUnlocked("turbodart"); } },
       { id: "own10",   text: "Score 10 with a plane you designed", coins: 8, check: function (g) { return g.plane === "custom" && g.score >= 10; } },
       { id: "bandit",  text: "Get your coins back from Bandit", coins: 15, check: function (g) { return g.bandit; }, ready: function () { return WINTER; } },
+      { id: "volcano", text: "Find the secret volcano 🌋",     coins: 15, check: function (g) { return g.lava; } },
+      { id: "rubies",  text: "Grab 3 rubies in the volcano",   coins: 15, check: function (g) { return g.rubies >= 3; }, ready: function () { return !!earned.lava; } },
+      { id: "erupt",   text: "Survive the volcano eruption",   coins: 20, check: function (g) { return g.erupt; }, ready: function () { return !!earned.lava; } },
       { id: "rush2",   text: "Reach Round 2 in Boss Rush",     coins: 20, mode: "rush", check: function (g) { return g.round >= 2; } }
     ];
     let missions = { active: [], done: 0 };
@@ -992,7 +1001,8 @@
         boosts: boostsThisGame, bolts: boltsDodged, plane: chosen, water: water > 0,
         biscuit: mode === "normal" && bossDone, cops: mode === "normal" && copsDone,
         antis: mode === "normal" && antisDone, snow: mode === "normal" && WINTER && snowDone,
-        shark: sharkDone, round: mode === "rush" ? rushRound : 0, bandit: banditCaught
+        shark: sharkDone, round: mode === "rush" ? rushRound : 0,
+        lava: lava > 0, rubies: rubiesThisGame, erupt: eruptDone, bandit: banditCaught
       };
       missions.active.slice().forEach(function (id) {
         const m = findMission(id);
@@ -1068,6 +1078,7 @@
       night = 0;
       coinsThisGame = 0;
       pearlsThisGame = 0;
+      rubiesThisGame = 0;
       flapsThisGame = 0;
       framesThisGame = 0;
       powerupsThisGame = 0;
@@ -1101,6 +1112,11 @@
       portal = null;      // the secret portal (it shows up after 30 points)
       shark = null;
       sharkDone = false;
+      lava = 0;           // 0 = not in the volcano, 1 = all the way in
+      erupt = null;
+      eruptDone = false;
+      rocks = [];
+      rocksDodged = 0;
       snowman = null;
       snowballs = [];
       snowDone = !WINTER;   // the snowman only comes in winter
@@ -1303,7 +1319,7 @@
       }
       if (unlockTimer > 0) unlockTimer--;
       // SECRET LEVEL: at 200 points you fly right up into OUTER SPACE!
-      if (score >= 200 && space === 0 && mode === "normal" && water === 0) {
+      if (score >= 200 && space === 0 && mode === "normal" && water === 0 && lava === 0) {
         space = 0.001;
         weather = "clear";
         rainDrops = [];
@@ -1322,12 +1338,12 @@
 
       // ----- WEATHER -----
       // Every so often the weather changes. No wind or lightning during a boss fight!
-      const bossHere = boss || cops || antis || snowman || shark;
+      const bossHere = boss || cops || antis || snowman || shark || erupt;
       if (score >= 5 && mode === "normal") weatherTimer--;   // no surprise weather in Boss Rush or Story
       if (weatherTimer <= 0) {
         weatherTimer = 500 + Math.random() * 300;
         const r = Math.random();
-        if (bossHere || space > 0 || water > 0 || r < 0.4) weather = "clear";
+        if (bossHere || space > 0 || water > 0 || lava > 0 || r < 0.4) weather = "clear";
         else if (r < 0.7) weather = night > 0.5 ? "storm" : (WINTER ? "snow" : "rain");
         else weather = "wind";
         if (weather === "wind") {
@@ -1348,7 +1364,7 @@
       const windPush = weather === "wind" && !bossHere ? windDir * 0.1 : 0;
       const rainPush = rainy ? 0.03 : 0;   // wet paper is heavier!
 
-      plane.vy += (P().gravity + windPush + rainPush) * (space >= 1 ? 0.8 : water >= 1 ? 0.75 : 1);   // less gravity in space and underwater!
+      plane.vy += (P().gravity + windPush + rainPush) * (space >= 1 ? 0.8 : water >= 1 ? 0.75 : lava >= 1 ? 0.9 : 1);   // less gravity in space and underwater!
 
       // Raindrops falling
       if (rainy && rainDrops.length < 90) rainDrops.push({ x: Math.random() * (W + 100), y: -10, s: 7 + Math.random() * 4 });
@@ -1406,7 +1422,7 @@
 
       // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
       const storyBossTime = mode === "story" && storyPhase !== "goal";
-      if (!boss && !cops && !antis && !snowman && !shark && !bandit && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
+      if (!boss && !cops && !antis && !snowman && !shark && !erupt && !bandit && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
       if (spawnClock >= SPAWN_EVERY) {
         spawnClock -= SPAWN_EVERY;
         addStack();
@@ -1420,8 +1436,8 @@
           // In winter, a third kind of power-up can show up: the snowball shield!
           const kind = WINTER && Math.random() < 0.34 ? "snowball" : (Math.random() < 0.5 ? "magnet" : "slow");
           powerups.push({ x: W, y: y, type: kind });
-        } else if (mode === "normal" && water === 0 && space === 0 && !portal && score >= 30 && Math.random() < 0.12) {
-          portal = { x: W, y: y };   // a rare secret portal!
+        } else if (mode === "normal" && water === 0 && lava === 0 && space === 0 && !portal && score >= 30 && Math.random() < 0.12) {
+          portal = { x: W, y: y, kind: Math.random() < 0.5 ? "water" : "lava" };   // a rare secret portal! (blue = water, orange = volcano)
         } else if (Math.random() < 0.7) {
           coins.push({ x: W, y: y });
         }
@@ -1457,6 +1473,7 @@
           score += 1;
           coinsThisGame++;
           if (water > 0.5) pearlsThisGame++;
+          if (lava > 0.5) rubiesThisGame++;
           wallet++;
           try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
           play("coin");
@@ -1534,7 +1551,7 @@
         }
       }
 
-      if (!boss && !bossDone && !shark && !bandit && score >= 50) startBiscuit();
+      if (!boss && !bossDone && !shark && !erupt && !bandit && score >= 50) startBiscuit();
       if (boss) {
         // Slide in from the right, then bob up and down
         const homeX = 320;
@@ -1576,7 +1593,7 @@
       // ----- BOSS 2: the Not Smart Cops (Barry and Lou) -----
       // At 100 points they drive up in a flying police car and throw donuts.
       // Dodge 12 donuts to win!
-      if (!cops && !copsDone && !boss && !snowman && !shark && !bandit && score >= 100) startCops();
+      if (!cops && !copsDone && !boss && !snowman && !shark && !erupt && !bandit && score >= 100) startCops();
       if (cops) {
         const copsHome = 300;
         if (cops.leaving) cops.x += 3.5;
@@ -1624,7 +1641,7 @@
       // ----- BOSS 3: PRAYINGANTIS -----
       // At 150 points, the hero shows up. He thinks your plane is a bug,
       // so he shoots fire at it! Dodge 12 fire shots to win.
-      if (!antis && !antisDone && !boss && !cops && !snowman && !shark && !bandit && score >= 150) startAntis();
+      if (!antis && !antisDone && !boss && !cops && !snowman && !shark && !erupt && !bandit && score >= 150) startAntis();
       if (antis) {
         const antisHome = 310;
         if (antis.leaving) { antis.x += 2.5; antis.y -= 3; }   // he flies up and away
@@ -1671,7 +1688,7 @@
 
       // ----- WINTER BOSS: THE GIANT SNOWMAN -----
       // At 75 points (only in winter), a giant snowman throws snowballs. Dodge 10!
-      if (!snowman && !snowDone && !boss && !cops && !antis && !shark && !bandit && score >= 75) startSnowman();
+      if (!snowman && !snowDone && !boss && !cops && !antis && !shark && !erupt && !bandit && score >= 75) startSnowman();
       if (snowman) {
         const snowHome = 310;
         if (snowman.leaving) snowman.x += 3;
@@ -1721,7 +1738,7 @@
       // At 125 points (only in winter), Bandit the raccoon swoops at you to STEAL your coins!
       // He can't make you crash. Grab the ❄️ snowballs floating by and you'll throw them at him.
       // Hit him 5 times and he drops his sack: you get your coins back, plus a bonus!
-      if (mode === "normal" && !bandit && !banditDone && !boss && !cops && !antis && !snowman && !shark && score >= 125) startBandit();
+      if (mode === "normal" && !bandit && !banditDone && !boss && !cops && !antis && !snowman && !shark && !erupt && score >= 125) startBandit();
       if (bandit) {
         const home = 300;   // where he hovers
         if (bandit.leaving) {
@@ -1831,7 +1848,20 @@
       if (portal) {
         portal.x -= speed;
         const pdx = portal.x - plane.x, pdy = portal.y - plane.y;
-        if (pdx * pdx + pdy * pdy < 30 * 30) {
+        if (pdx * pdx + pdy * pdy < 30 * 30 && portal.kind === "lava") {
+          portal = null;
+          lava = 0.001;
+          lavaScore = score;
+          weather = "clear";
+          rainDrops = [];
+          bolt = null;
+          play("unlock");
+          toasts.push({ text: "🌋 SECRET WORLD: THE VOLCANO!", t: 180 });
+          toasts.push({ text: "Rubies, lava... and it's rumbling.", t: 180 });
+          earn("lava");
+          stats.portals = (stats.portals || 0) + 1;
+          saveStats();
+        } else if (pdx * pdx + pdy * pdy < 30 * 30) {
           portal = null;
           water = 0.001;
           waterScore = score;
@@ -1884,6 +1914,43 @@
         }
       }
 
+      if (lava > 0 && lava < 1) lava = Math.min(1, lava + 1 / 90);
+
+      // ----- THE ERUPTION (15 points after you go into the volcano) -----
+      // Lava rocks fly at you from the right. A warning shows where each one is coming. Dodge 12!
+      if (lava >= 1 && !erupt && !eruptDone && !boss && !cops && !antis && !snowman && !bandit && score >= lavaScore + 15) {
+        erupt = { left: 12, t: 90 };
+        play("thunder");
+        toasts.push({ text: "🌋 ERUPTION! Dodge the lava rocks!", t: 150 });
+      }
+      if (erupt) {
+        erupt.t -= slow;
+        if (erupt.t <= 0 && erupt.left > 0) {
+          erupt.left--;
+          erupt.t = erupt.left > 6 ? 55 : 42;   // they come faster near the end!
+          rocks.push({ x: W + 30, y: plane.y, warn: 45, spin: 0 });
+        }
+        if (erupt.left === 0 && rocks.length === 0) {
+          erupt = null;
+          eruptDone = true;
+          beat("volcano");
+          score += 10;
+          toasts.push({ text: "🌋 The volcano calmed down! +10", t: 150 });
+          earn("rocks");
+        }
+      }
+      rocks.forEach(function (k) {
+        if (k.warn > 0) {
+          k.warn -= slow;
+          if (k.warn > 15) k.y += (plane.y - k.y) * 0.12;   // it aims at you... then locks on
+          return;
+        }
+        k.x -= 6 * slow;
+        k.spin += 0.15 * slow;
+        if (k.x < -30) { k.gone = true; rocksDodged++; score += 1; checkUnlock(); }
+      });
+      rocks = rocks.filter(function (k) { return !k.gone; });
+
       // Remember where you are, for your ghost next time (every other frame)
       if (frame % 2 === 0) ghostRun.push(Math.round(plane.y));
       if (ghostOn && ghostData && !ghostPassed && frame / 2 >= ghostData.ys.length) {
@@ -1924,6 +1991,11 @@
       for (const b of snowballs) {
         const dx = b.x - plane.x, dy = b.y - plane.y;
         if (dx * dx + dy * dy < (b.r + 10 * P().size) * (b.r + 10 * P().size)) hit = true;
+      }
+      for (const k of rocks) {
+        if (k.warn > 0) continue;
+        const dx = k.x - plane.x, dy = k.y - plane.y;
+        if (dx * dx + dy * dy < (15 + 10 * P().size) * (15 + 10 * P().size)) hit = true;
       }
       // Getting bitten by the shark
       if (shark && shark.phase === "charge") {
@@ -2333,7 +2405,7 @@
         ctx.fill();
         ctx.globalAlpha = 1;
       }
-      if (NEW_YEAR && space === 0 && water === 0) drawFireworks();
+      if (NEW_YEAR && space === 0 && water === 0 && lava === 0) drawFireworks();
       if (state === "playing" && slowTimer > 0) {
         ctx.fillStyle = "rgba(80, 60, 160, 0.18)";   // purple-ish tint during slow-mo
         ctx.fillRect(0, 0, W, H);
@@ -2354,6 +2426,81 @@
       ctx.fillRect(0, GROUND, W, 4);
       if (space > 0) drawSpace();
       if (water > 0) drawWater();
+      if (lava > 0) drawLava();
+    }
+
+    // THE VOLCANO: a red-hot sky, smoking volcanoes, floating embers, and a lava floor
+    function drawLava() {
+      ctx.save();
+      ctx.globalAlpha = lava;
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#3a0a0a");
+      sky.addColorStop(1, "#c2410c");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+      // volcanoes far away (they slide by slowly)
+      for (let i = 0; i < 2; i++) {
+        const vx = ((i * 260 - frame * 0.3) % (W + 260) + W + 260) % (W + 260) - 130;
+        ctx.fillStyle = "#2a1414";
+        ctx.beginPath(); ctx.moveTo(vx - 120, GROUND); ctx.lineTo(vx - 25, GROUND - 170); ctx.lineTo(vx + 25, GROUND - 170); ctx.lineTo(vx + 120, GROUND); ctx.fill();
+        ctx.fillStyle = "#ff7a1a";   // glowing lava at the top
+        ctx.beginPath(); ctx.moveTo(vx - 25, GROUND - 170); ctx.lineTo(vx + 25, GROUND - 170); ctx.lineTo(vx + 12, GROUND - 140); ctx.lineTo(vx - 4, GROUND - 155); ctx.lineTo(vx - 14, GROUND - 138); ctx.fill();
+        ctx.fillStyle = "rgba(60, 40, 40, 0.5)";   // smoke
+        for (let k = 0; k < 3; k++) {
+          ctx.beginPath(); ctx.arc(vx + Math.sin(frame / 40 + k) * 12, GROUND - 190 - k * 26, 16 + k * 6, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      // glowing embers floating up
+      for (let i = 0; i < STARS.length; i++) {
+        const st = STARS[i];
+        const ey = ((st.y - frame * (st.s === 3 ? 1.4 : 0.8)) % GROUND + GROUND) % GROUND;
+        ctx.fillStyle = i % 3 === 0 ? "#ffd23f" : "#ff7a1a";
+        ctx.globalAlpha = lava * (0.4 + 0.6 * Math.abs(Math.sin((frame + i * 13) / 20)));
+        ctx.fillRect(st.x + Math.sin((frame + i * 20) / 30) * 5, ey, st.s, st.s);
+      }
+      ctx.globalAlpha = lava;
+      // bubbling lava floor
+      ctx.fillStyle = "#ff5a00";
+      ctx.fillRect(0, GROUND, W, H - GROUND);
+      ctx.fillStyle = "#ffb000";
+      for (let i = 0; i < 6; i++) {
+        const bx = ((i * 80 - frame * 1.5) % (W + 80) + W + 80) % (W + 80) - 40;
+        const r = 4 + Math.abs(Math.sin(frame / 15 + i)) * 6;
+        ctx.beginPath(); ctx.arc(bx, GROUND + 14, r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, GROUND, W, 4);
+      ctx.restore();
+    }
+
+    // Lava rocks: first a warning on the right, then they fly at you
+    function drawRocks() {
+      rocks.forEach(function (k) {
+        if (k.warn > 0) {
+          if (Math.floor(frame / 6) % 2 === 0) comicText("⚠️", W - 22, k.y + 9, 24, "#ff5a5a");
+          return;
+        }
+        ctx.save();
+        ctx.translate(k.x, k.y);
+        // fiery tail
+        ctx.fillStyle = "rgba(255, 150, 0, 0.6)";
+        ctx.beginPath(); ctx.moveTo(6, -10); ctx.lineTo(40, 0); ctx.lineTo(6, 10); ctx.fill();
+        ctx.rotate(k.spin);
+        ctx.fillStyle = "#4a2a20";
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let i = 0; i < 7; i++) {
+          const a = i / 7 * Math.PI * 2, r = i % 2 === 0 ? 15 : 12;
+          ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.strokeStyle = "#ff8a1a";   // glowing cracks
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(-7, -4); ctx.lineTo(0, 1); ctx.lineTo(6, -5); ctx.moveTo(0, 1); ctx.lineTo(2, 8); ctx.stroke();
+        ctx.restore();
+      });
+      if (erupt) comicText("Lava rocks left: " + (erupt.left + rocks.length), W / 2, 140, 18, "#ffd23f");
     }
 
     // NEW YEAR FIREWORKS: a new one bursts every so often
@@ -2432,7 +2579,7 @@
       ctx.translate(portal.x, portal.y);
       ctx.rotate(frame / 10);
       for (let i = 0; i < 3; i++) {
-        ctx.strokeStyle = ["#7cc4f2", "#2f55a0", "#ffffff"][i];
+        ctx.strokeStyle = portal.kind === "lava" ? ["#ffb000", "#c2410c", "#ffffff"][i] : ["#7cc4f2", "#2f55a0", "#ffffff"][i];
         ctx.lineWidth = 4;
         ctx.beginPath();
         ctx.arc(0, 0, 24 - i * 7, i, i + Math.PI * 1.5);
@@ -2543,8 +2690,10 @@
         const h = Math.min(bookH, y2 - y);
         const rock = space > 0.5;   // in space, the book stacks become space rocks!
         const reef = water > 0.5;   // underwater, they become coral!
+        const hot = lava > 0.5;     // in the volcano, they become black lava rock!
         ctx.fillStyle = rock ? ["#7a7a88", "#5f5f6e", "#8f8f9e"][i % 3]
                       : reef ? ["#ff7a7a", "#ff9f5a", "#ff6bb0"][i % 3]
+                      : hot ? ["#3a2a2a", "#4a3030", "#2e2222"][i % 3]
                       : colors[i % colors.length];
         ctx.fillRect(x, y, STACK_WIDTH, h);
         ctx.strokeStyle = "#111";
@@ -2553,6 +2702,10 @@
         if (h > 12 && reef) {
           ctx.fillStyle = "rgba(255,255,255,0.55)";   // coral dots
           ctx.beginPath(); ctx.arc(x + 14 + (i % 2) * 10, y + h / 2, 3, 0, Math.PI * 2); ctx.arc(x + 44 - (i % 2) * 8, y + h / 2 - 3, 2.5, 0, Math.PI * 2); ctx.fill();
+        } else if (h > 12 && hot) {
+          ctx.strokeStyle = "#ff7a1a";   // glowing lava cracks
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(x + 8, y + h / 2); ctx.lineTo(x + 22 + (i % 2) * 8, y + 5); ctx.lineTo(x + 36, y + h - 5); ctx.lineTo(x + 50, y + h / 2); ctx.stroke();
         } else if (h > 12 && rock) {
           ctx.fillStyle = "rgba(40,40,50,0.5)";   // craters
           ctx.beginPath(); ctx.arc(x + 18 + (i % 2) * 24, y + h / 2, 5, 0, Math.PI * 2); ctx.fill();
@@ -2818,7 +2971,7 @@
         const bob = Math.sin((frame + c.x) / 10) * 4;
         ctx.beginPath();
         ctx.arc(c.x, c.y + bob, 13, 0, Math.PI * 2);
-        ctx.fillStyle = water > 0.5 ? "#f8f0ff" : "#f2c230";   // underwater, coins are pearls
+        ctx.fillStyle = water > 0.5 ? "#f8f0ff" : lava > 0.5 ? "#e0245e" : "#f2c230";   // underwater, coins are pearls. In the volcano, rubies!
         ctx.fill();
         ctx.lineWidth = 3;
         ctx.strokeStyle = "#111";
@@ -3412,7 +3565,7 @@
       drawBackground();
       drawStacks();
       const live = state === "playing" || state === "paused";
-      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawBandit(); drawAmmo(); drawPortal(); drawShark(); drawGhost(); }
+      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawBandit(); drawAmmo(); drawPortal(); drawShark(); drawRocks(); drawGhost(); }
       if (state !== "start") drawPlane();
       if (live) drawShield();
       if (live) drawBuddy(buddyPos.x, buddyPos.y, 1);

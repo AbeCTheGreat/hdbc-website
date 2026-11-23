@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coloring Pages - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body class="coloring-body">
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- COLORING PAGES -->
+  <section>
+    <h2>🖍️ HDBOC Coloring Pages</h2>
+    <p class="peek-intro">Pick a picture, pick a color, and start coloring! Save it or print it when you're done.</p>
+
+    <div class="maker">
+      <!-- STEP 1: the picture (the script adds a button for each one) -->
+      <div class="maker-row">
+        <strong>1. Pick a picture:</strong>
+        <div class="maker-buttons" id="pic-buttons"></div>
+      </div>
+
+      <!-- STEP 2: the tool -->
+      <div class="maker-row">
+        <strong>2. Pick a tool:</strong>
+        <div class="maker-buttons" id="tool-buttons">
+          <button type="button" data-tool="fill" class="on">🪣 Paint bucket</button>
+          <button type="button" data-tool="crayon">🖍️ Crayon</button>
+          <button type="button" data-tool="eraser">🧽 Eraser</button>
+          <label class="crayon-size">Crayon size <input type="range" id="size" min="4" max="40" value="14"></label>
+        </div>
+      </div>
+
+      <!-- STEP 3: the color -->
+      <div class="maker-row">
+        <strong>3. Pick a color:</strong>
+        <div class="color-swatches" id="swatches"></div>
+      </div>
+
+      <!-- THE PICTURE: color goes on the bottom canvas, the black lines sit on top -->
+      <div class="color-stack" id="stack">
+        <canvas id="paint" width="600" height="600" aria-label="Your coloring page. Click or tap to color it in."></canvas>
+        <canvas id="lines" width="600" height="600" aria-hidden="true"></canvas>
+      </div>
+
+      <div class="maker-buttons maker-tools">
+        <button type="button" id="undo">↩️ Undo</button>
+        <button type="button" id="clear">🧹 Start over</button>
+        <button type="button" id="print">🖨️ Print</button>
+        <button type="button" id="save" class="save-comic">💾 Save my picture</button>
+      </div>
+      <p class="hint">🪣 The paint bucket fills a whole space with one click. 🖍️ The crayon lets you draw anywhere!</p>
+    </div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // ===== THE COLORS =====
+    // Add or change colors here (they're hex codes, like in the CSS)
+    const COLORS = [
+      "#e63946", "#ff7a1a", "#f2c230", "#ffe66d", "#7dd56f", "#2f9a4a",
+      "#5ad1ff", "#1d4e89", "#8e5bd6", "#ff8af0", "#8b5a2b", "#f1c7a0",
+      "#9ca3af", "#4b5563", "#111111", "#ffffff"
+    ];
+
+    // ===== THE PICTURES =====
+    // Each picture is drawn with black lines. To add a new one, copy a block,
+    // change the name, and draw with the helpers:
+    //   circle(x, y, r)           ellipse(x, y, w, h, tilt)
+    //   poly([[x, y], [x, y]...])  line([[x, y], [x, y]...])
+    //   rect(x, y, w, h)          words(text, x, y, size)
+    // The picture is 600 wide and 600 tall. Things you draw later go ON TOP.
+    const PICTURES = [
+      { id: "plane", name: "✈️ Paper airplane", draw: function () {
+        circle(500, 100, 50);                                        // sun
+        for (let i = 0; i < 8; i++) {
+          const a = i * Math.PI / 4;
+          line([[500 + Math.cos(a) * 62, 100 + Math.sin(a) * 62], [500 + Math.cos(a) * 86, 100 + Math.sin(a) * 86]]);
+        }
+        cloud(110, 110, 1.1);
+        cloud(380, 230, 0.8);
+        poly([[0, 500], [150, 455], [300, 480], [450, 445], [600, 470], [600, 600], [0, 600]]);   // hills
+        poly([[0, 560], [200, 520], [380, 545], [600, 515], [600, 600], [0, 600]]);
+        poly([[60, 330], [440, 190], [290, 430]]);                    // the plane's wing
+        poly([[440, 190], [255, 350], [290, 430]]);                   // the fold
+        line([[20, 260], [110, 225]]); line([[10, 300], [90, 270]]); line([[40, 380], [120, 350]]);   // whoosh lines
+      } },
+      { id: "biscuit", name: "🐶 Biscuit", draw: function () {
+        ellipse(300, 470, 150, 120, 0);                               // body
+        ellipse(230, 570, 55, 30, 0); ellipse(370, 570, 55, 30, 0);   // paws
+        ellipse(185, 240, 45, 95, 0.35); ellipse(415, 240, 45, 95, -0.35);   // floppy ears
+        circle(300, 250, 120);                                        // head
+        ellipse(300, 310, 70, 50, 0);                                 // snout
+        circle(255, 220, 18); circle(345, 220, 18);                   // eyes
+        circle(260, 214, 6); circle(350, 214, 6);
+        ellipse(300, 290, 26, 18, 0);                                 // nose
+        line([[300, 308], [300, 325]]);
+        poly([[285, 330], [315, 330], [312, 352], [300, 360], [288, 352]]);   // tongue
+        poly([[200, 370], [400, 370], [395, 395], [205, 395]]);       // collar
+        circle(300, 415, 20);                                         // name tag
+        words("B", 300, 424, 24);
+        ellipse(470, 520, 30, 70, -0.6);                              // wagging tail
+        for (let i = 0; i < 5; i++) circle(60 + i * 30, 70 + (i % 2) * 20, 10);   // bubbles of happiness
+      } },
+      { id: "volcano", name: "🌋 Volcano", draw: function () {
+        cloud(90, 90, 0.9);
+        cloud(250, 60, 0.7);
+        circle(300, 120, 40); circle(270, 160, 32); circle(330, 165, 30);   // smoke
+        poly([[60, 540], [240, 190], [360, 190], [540, 540]]);         // the volcano
+        ellipse(300, 190, 60, 16, 0);                                 // crater
+        poly([[250, 192], [270, 260], [285, 230], [300, 300], [318, 240], [332, 275], [350, 192]]);   // lava drips
+        poly([[0, 540], [600, 540], [600, 600], [0, 600]]);            // ground
+        poly([[180, 150], [205, 135], [225, 152], [215, 178], [185, 175]]); // lava rocks flying
+        poly([[440, 120], [470, 105], [492, 125], [478, 152], [448, 146]]);
+        poly([[505, 240], [528, 228], [545, 246], [534, 266], [510, 262]]);
+        poly([[400, 440], [560, 380], [470, 500]]);                   // a paper plane zooming away!
+        poly([[560, 380], [450, 470], [470, 500]]);
+      } },
+      { id: "snowman", name: "⛄ Snowman", draw: function () {
+        poly([[0, 520], [600, 500], [600, 600], [0, 600]]);            // snowy ground
+        circle(300, 440, 120);                                        // bottom
+        circle(300, 270, 90);                                         // middle
+        circle(300, 140, 65);                                         // head
+        rect(240, 78, 120, 16);                                       // hat brim
+        rect(260, 10, 80, 70);                                        // hat
+        rect(260, 52, 80, 14);                                        // hat band
+        circle(278, 128, 8); circle(322, 128, 8);                     // eyes
+        poly([[300, 145], [355, 158], [300, 162]]);                   // carrot nose
+        poly([[230, 190], [370, 190], [380, 215], [220, 215]]);       // scarf
+        poly([[330, 210], [365, 210], [360, 290], [330, 285]]);
+        circle(300, 250, 10); circle(300, 290, 10); circle(300, 400, 12); circle(300, 450, 12);   // buttons
+        line([[215, 260], [120, 200], [95, 180]]); line([[120, 200], [105, 222]]);   // stick arms
+        line([[385, 260], [480, 200], [505, 180]]); line([[480, 200], [495, 222]]);
+        flake(80, 80); flake(520, 70); flake(470, 360); flake(110, 380);
+      } },
+      { id: "shark", name: "🦈 Shark", draw: function () {
+        poly([[0, 530], [150, 515], [300, 535], [450, 510], [600, 525], [600, 600], [0, 600]]);   // sand
+        line([[70, 530], [60, 480], [80, 440], [65, 400]]); line([[110, 525], [120, 470], [100, 430]]);   // seaweed
+        line([[520, 520], [530, 460], [510, 420], [525, 380]]);
+        poly([[430, 270], [520, 200], [500, 270], [520, 340]]);       // tail
+        poly([[280, 220], [330, 130], [360, 220]]);                   // fin
+        ellipse(300, 270, 170, 60, 0);                                // body
+        ellipse(290, 295, 125, 25, 0);                                // belly
+        circle(205, 250, 10);                                         // eye
+        poly([[140, 285], [150, 300], [160, 285], [170, 300], [180, 285], [190, 300], [200, 285]]);   // teeth
+        line([[260, 250], [255, 285]]); line([[275, 250], [270, 285]]); line([[290, 250], [285, 285]]);   // gills
+        fish(110, 420); fish(450, 430); fish(480, 110);
+        circle(150, 150, 14); circle(130, 110, 9); circle(160, 80, 6); circle(380, 80, 12); circle(400, 45, 7);   // bubbles
+      } },
+      { id: "logo", name: "🔤 HDBOC letters", draw: function () {
+        words("HDBOC", 300, 250, 150, true);
+        words("PAPER", 300, 380, 80, true);
+        words("PRODUCTS", 300, 480, 80, true);
+        star(70, 70); star(530, 80); star(60, 540); star(540, 545);
+      } }
+    ];
+
+    // ----- You don't need to change anything below this line -----
+
+    const paint = document.getElementById("paint");
+    const pctx = paint.getContext("2d", { willReadFrequently: true });
+    const lines = document.getElementById("lines");
+    const ctx = lines.getContext("2d");
+    const W = 600, H = 600;
+    let tool = "fill", color = COLORS[0], picture = PICTURES[0];
+    let undoList = [];
+
+    // The drawing helpers the pictures use
+    function begin() {
+      ctx.lineWidth = 5; ctx.strokeStyle = "#111"; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    }
+    // Shapes rub out the lines behind them, so things on top look like they're in front
+    function shape(path) {
+      begin();
+      ctx.save();
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.beginPath(); path(); ctx.fill();
+      ctx.restore();
+      ctx.beginPath(); path(); ctx.stroke();
+    }
+    function circle(x, y, r) { shape(function () { ctx.arc(x, y, r, 0, Math.PI * 2); }); }
+    function ellipse(x, y, w, h, tilt) { shape(function () { ctx.ellipse(x, y, w, h, tilt, 0, Math.PI * 2); }); }
+    function rect(x, y, w, h) { shape(function () { ctx.rect(x, y, w, h); }); }
+    function poly(points) {
+      shape(function () {
+        points.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+        ctx.closePath();
+      });
+    }
+    function line(points) {
+      begin();
+      ctx.beginPath();
+      points.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); });
+      ctx.stroke();
+    }
+    function words(text, x, y, size, outline) {
+      begin();
+      ctx.font = "900 " + size + "px 'Arial Black', 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "center";
+      if (outline) { ctx.lineWidth = 4; ctx.strokeText(text, x, y); }
+      else { ctx.fillStyle = "#111"; ctx.fillText(text, x, y); }
+    }
+    function cloud(x, y, s) {
+      shape(function () {
+        ctx.moveTo(x - 60 * s, y + 25 * s);
+        ctx.arc(x - 40 * s, y + 5 * s, 28 * s, Math.PI * 0.8, Math.PI * 1.6);
+        ctx.arc(x, y - 15 * s, 35 * s, Math.PI * 1.15, Math.PI * 1.9);
+        ctx.arc(x + 42 * s, y + 3 * s, 30 * s, Math.PI * 1.4, Math.PI * 0.3);
+        ctx.closePath();
+      });
+    }
+    function flake(x, y) {
+      for (let i = 0; i < 3; i++) {
+        const a = i * Math.PI / 3;
+        line([[x - Math.cos(a) * 18, y - Math.sin(a) * 18], [x + Math.cos(a) * 18, y + Math.sin(a) * 18]]);
+      }
+    }
+    function fish(x, y) {
+      poly([[x + 28, y], [x + 50, y - 16], [x + 50, y + 16]]);
+      ellipse(x, y, 32, 18, 0);
+      circle(x - 16, y - 4, 3);
+    }
+    function star(x, y) {
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 34 : 14, a = -Math.PI / 2 + i * Math.PI / 5;
+        pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]);
+      }
+      poly(pts);
+    }
+
+    // Load a picture (and the coloring you did on it before, if there is any)
+    function loadPicture(p) {
+      picture = p;
+      ctx.clearRect(0, 0, W, H);
+      p.draw();
+      walls = ctx.getImageData(0, 0, W, H).data;
+      pctx.fillStyle = "#ffffff";
+      pctx.fillRect(0, 0, W, H);
+      undoList = [];
+      try {
+        const saved = localStorage.getItem("hdboc-coloring-" + p.id);
+        if (saved) {
+          const img = new Image();
+          img.onload = function () { pctx.drawImage(img, 0, 0); };
+          img.src = saved;
+        }
+      } catch (e) {}
+      document.querySelectorAll("#pic-buttons button").forEach(function (b) {
+        b.classList.toggle("on", b.dataset.id === p.id);
+      });
+    }
+    let walls = null;   // where the black lines are (the paint bucket stops at them)
+    let saveTimer = null;
+    function remember() {   // saves your coloring in this browser, so it's still there next time
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(function () {
+        try { localStorage.setItem("hdboc-coloring-" + picture.id, paint.toDataURL("image/png")); } catch (e) {}
+      }, 400);
+    }
+    function pushUndo() {
+      undoList.push(pctx.getImageData(0, 0, W, H));
+      if (undoList.length > 20) undoList.shift();
+    }
+
+    // The paint bucket: fill the space you clicked, up to the black lines
+    function hexToRgb(h) {
+      return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    }
+    function fill(x, y) {
+      x = Math.floor(x); y = Math.floor(y);
+      if (walls[(y * W + x) * 4 + 3] > 90) return;   // you clicked right on a line
+      const img = pctx.getImageData(0, 0, W, H);
+      const d = img.data;
+      const start = (y * W + x) * 4;
+      const sr = d[start], sg = d[start + 1], sb = d[start + 2];
+      const [nr, ng, nb] = hexToRgb(color);
+      if (Math.abs(sr - nr) + Math.abs(sg - ng) + Math.abs(sb - nb) < 10) return;   // already that color
+      pushUndo();
+      const seen = new Uint8Array(W * H);
+      const todo = [y * W + x];
+      while (todo.length) {
+        const i = todo.pop();
+        if (seen[i]) continue;
+        seen[i] = 1;
+        const k = i * 4;
+        if (walls[k + 3] > 90) continue;
+        if (Math.abs(d[k] - sr) + Math.abs(d[k + 1] - sg) + Math.abs(d[k + 2] - sb) > 60) continue;
+        d[k] = nr; d[k + 1] = ng; d[k + 2] = nb; d[k + 3] = 255;
+        const px = i % W;
+        if (px > 0) todo.push(i - 1);
+        if (px < W - 1) todo.push(i + 1);
+        if (i >= W) todo.push(i - W);
+        if (i < W * (H - 1)) todo.push(i + W);
+      }
+      pctx.putImageData(img, 0, 0);
+      remember();
+    }
+
+    // The crayon and eraser
+    let drawing = false, last = null;
+    function spot(e) {
+      const r = paint.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+    }
+    function stroke(a, b) {
+      pctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
+      pctx.lineWidth = Number(document.getElementById("size").value) * (tool === "eraser" ? 1.5 : 1);
+      pctx.lineCap = "round";
+      pctx.lineJoin = "round";
+      pctx.beginPath(); pctx.moveTo(a.x, a.y); pctx.lineTo(b.x, b.y); pctx.stroke();
+    }
+    paint.addEventListener("pointerdown", function (e) {
+      const p = spot(e);
+      if (tool === "fill") { fill(p.x, p.y); return; }
+      pushUndo();
+      drawing = true;
+      last = p;
+      stroke(p, p);
+      paint.setPointerCapture(e.pointerId);
+    });
+    paint.addEventListener("pointermove", function (e) {
+      if (!drawing) return;
+      const p = spot(e);
+      stroke(last, p);
+      last = p;
+    });
+    function stop() { if (drawing) { drawing = false; remember(); } }
+    paint.addEventListener("pointerup", stop);
+    paint.addEventListener("pointercancel", stop);
+
+    // Buttons
+    const picButtons = document.getElementById("pic-buttons");
+    PICTURES.forEach(function (p) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.id = p.id;
+      b.textContent = p.name;
+      b.addEventListener("click", function () { loadPicture(p); });
+      picButtons.appendChild(b);
+    });
+    document.querySelectorAll("#tool-buttons button").forEach(function (b) {
+      b.addEventListener("click", function () {
+        tool = b.dataset.tool;
+        document.querySelectorAll("#tool-buttons button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        paint.style.cursor = tool === "fill" ? "cell" : "crosshair";
+      });
+    });
+    const swatches = document.getElementById("swatches");
+    COLORS.forEach(function (c, i) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "color-swatch" + (i === 0 ? " on" : "");
+      b.style.background = c;
+      b.setAttribute("aria-label", "Color " + c);
+      b.addEventListener("click", function () {
+        color = c;
+        swatches.querySelectorAll("button").forEach(function (x) { x.classList.toggle("on", x === b); });
+        if (tool === "eraser") document.querySelector('[data-tool="fill"]').click();
+      });
+      swatches.appendChild(b);
+    });
+    document.getElementById("undo").addEventListener("click", function () {
+      if (!undoList.length) return;
+      pctx.putImageData(undoList.pop(), 0, 0);
+      remember();
+    });
+    document.getElementById("clear").addEventListener("click", function () {
+      if (!confirm("Erase all your coloring on this picture?")) return;
+      pushUndo();
+      pctx.fillStyle = "#ffffff";
+      pctx.fillRect(0, 0, W, H);
+      try { localStorage.removeItem("hdboc-coloring-" + picture.id); } catch (e) {}
+    });
+    function finished() {   // the colors and the lines together in one picture
+      const out = document.createElement("canvas");
+      out.width = W; out.height = H;
+      const o = out.getContext("2d");
+      o.drawImage(paint, 0, 0);
+      o.drawImage(lines, 0, 0);
+      return out;
+    }
+    document.getElementById("save").addEventListener("click", function () {
+      const link = document.createElement("a");
+      link.download = "my-hdboc-coloring-" + picture.id + ".png";
+      link.href = finished().toDataURL("image/png");
+      link.click();
+    });
+    document.getElementById("print").addEventListener("click", function () {
+      window.print();
+    });
+
+    paint.style.cursor = "cell";
+    loadPicture(PICTURES[0]);
+  </script>
+
+</body>
+</html>
