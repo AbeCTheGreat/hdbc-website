@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Airplane Golf - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- PAPER AIRPLANE GOLF -->
+  <section class="game-section">
+    <a class="back" href="game.html">&larr; Back to the Paper Airplane Game</a>
+    <h2>⛳ Paper Airplane Golf</h2>
+    <p class="game-help">Land your plane in the hole in as few throws as you can!
+      <strong>Pull back</strong> on the course (click and drag, or touch and drag), then <strong>let go</strong> to throw.
+      Fly through the 💫 hoops for bonus coins. Watch out for water and the wind!</p>
+
+    <canvas id="course" width="800" height="400" aria-label="Golf course. Drag back and let go to throw your plane toward the flag."></canvas>
+
+    <!-- THE SCORECARD (the script fills it in) -->
+    <div class="scorecard-wrap">
+      <table class="scorecard" id="scorecard"></table>
+    </div>
+    <p class="game-help" id="golf-best"></p>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // ===== THE HOLES =====
+    // The course is 800 wide and 400 tall (y = 0 is the top).
+    //   ground: points along the grass, from left to right
+    //   tee:    where you start (x)
+    //   cup:    where the hole is (x)
+    //   par:    how many throws a good golfer needs
+    //   water:  [from x, to x]  (land in it = +1 throw, and you go back)
+    //   walls:  [x, how tall]   (trees you bounce off)
+    //   hoops:  [x, y]          (fly through for a bonus coin)
+    //   wind:   pushes your plane (minus = to the left)
+    const HOLES = [
+      { name: "Easy Start", par: 2, tee: 60, cup: 640, wind: 0,
+        ground: [[0, 330], [200, 330], [400, 320], [600, 330], [800, 330]], water: [], walls: [], hoops: [[340, 200]] },
+      { name: "Over the Hill", par: 3, tee: 50, cup: 700, wind: 0,
+        ground: [[0, 340], [250, 340], [380, 200], [480, 210], [560, 340], [800, 340]], water: [], walls: [], hoops: [[420, 120]] },
+      { name: "The Pond", par: 3, tee: 50, cup: 690, wind: 0,
+        ground: [[0, 320], [260, 320], [280, 370], [480, 370], [500, 320], [800, 320]], water: [[280, 480]], walls: [], hoops: [[380, 220]] },
+      { name: "Tree Trouble", par: 3, tee: 50, cup: 720, wind: 0.02,
+        ground: [[0, 330], [800, 330]], water: [], walls: [[300, 150], [560, 140]], hoops: [[420, 150], [650, 130]] },
+      { name: "Windy Cliff", par: 3, tee: 40, cup: 690, wind: -0.03,
+        ground: [[0, 250], [200, 250], [230, 370], [560, 370], [600, 300], [800, 300]], water: [[240, 550]], walls: [], hoops: [[400, 160]] },
+      { name: "The Big One", par: 4, tee: 40, cup: 740, wind: 0.03,
+        ground: [[0, 340], [180, 340], [260, 260], [330, 340], [420, 370], [560, 370], [600, 330], [800, 330]], water: [[420, 560]], walls: [[660, 120]], hoops: [[250, 150], [500, 200]] }
+    ];
+    const MAX_POWER = 11;   // the hardest throw
+    const GRAVITY = 0.2;
+
+    // ----- You don't need to change anything below this line -----
+
+    const canvas = document.getElementById("course");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    let hole = 0, strokes = [], plane, aim = null, state = "aim";
+    let message = "", messageT = 0, frame = 0, trail = [], hoopsGot = {}, coinsWon = 0;
+    let lastSpot = null;
+    let best = 0;
+    try { best = Number(localStorage.getItem("hdboc-golf-best")) || 0; } catch (e) {}   // 0 = never finished
+
+    function H_() { return HOLES[hole]; }
+    // How high the ground is at x
+    function groundAt(x) {
+      const g = H_().ground;
+      for (let i = 0; i < g.length - 1; i++) {
+        if (x >= g[i][0] && x <= g[i + 1][0]) {
+          const k = (x - g[i][0]) / (g[i + 1][0] - g[i][0]);
+          return g[i][1] + (g[i + 1][1] - g[i][1]) * k;
+        }
+      }
+      return g[g.length - 1][1];
+    }
+    function inWater(x) { return H_().water.some(function (w) { return x > w[0] && x < w[1]; }); }
+
+    function startHole() {
+      plane = { x: H_().tee, y: groundAt(H_().tee) - 12, vx: 0, vy: 0 };
+      lastSpot = { x: plane.x, y: plane.y };
+      strokes[hole] = 0;
+      hoopsGot = {};
+      trail = [];
+      state = "aim";
+      say(H_().name + " · Par " + H_().par);
+      showScorecard();
+    }
+    function say(text) { message = text; messageT = 100; }
+
+    // ----- AUDIO -----
+    let audio = null;
+    function beep(type, from, to, time, volume) {
+      if (!audio) return;
+      const t = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(from, t);
+      osc.frequency.exponentialRampToValueAtTime(to, t + time);
+      gain.gain.setValueAtTime(volume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + time);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(t); osc.stop(t + time);
+    }
+
+    function addCoins(n) {
+      coinsWon += n;
+      try {
+        const wallet = Number(localStorage.getItem("hdboc-wallet")) || 0;
+        localStorage.setItem("hdboc-wallet", String(wallet + n));
+      } catch (e) {}
+    }
+
+    function update() {
+      frame++;
+      if (messageT > 0) messageT--;
+      if (state === "holedone" && messageT === 0) {
+        if (hole < HOLES.length - 1) { hole++; startHole(); } else finish();
+        return;
+      }
+      if (state !== "flying") return;
+      plane.vy += GRAVITY;
+      plane.vx += H_().wind;
+      plane.vx *= 0.997;
+      plane.x += plane.vx;
+      plane.y += plane.vy;
+      if (frame % 2 === 0) trail.push({ x: plane.x, y: plane.y });
+      // hoops
+      H_().hoops.forEach(function (h, i) {
+        const dx = plane.x - h[0], dy = plane.y - h[1];
+        if (!hoopsGot[i] && dx * dx + dy * dy < 26 * 26) {
+          hoopsGot[i] = true;
+          addCoins(1);
+          beep("triangle", 900, 1400, 0.15, 0.1);
+        }
+      });
+      // trees
+      H_().walls.forEach(function (w) {
+        const top = groundAt(w[0]) - w[1];
+        if (Math.abs(plane.x - w[0]) < 14 && plane.y > top) {
+          plane.x = w[0] + (plane.vx > 0 ? -15 : 15);
+          plane.vx *= -0.3;
+          beep("square", 200, 90, 0.12, 0.1);
+        }
+      });
+      // off the edge of the course
+      if (plane.x < -20 || plane.x > W + 20) { penalty("Out of bounds! +1"); return; }
+      // landing
+      const gy = groundAt(plane.x);
+      if (plane.y >= gy - 4) {
+        if (inWater(plane.x)) { penalty("SPLASH! 💦 +1"); return; }
+        plane.y = gy - 4;
+        if (Math.abs(plane.x - H_().cup) < 16) { holeIn(); return; }
+        state = "aim";
+        lastSpot = { x: plane.x, y: plane.y };
+        beep("sine", 300, 200, 0.1, 0.08);
+      }
+    }
+
+    function penalty(text) {
+      strokes[hole]++;
+      plane.x = lastSpot.x; plane.y = lastSpot.y; plane.vx = plane.vy = 0;
+      state = "aim";
+      say(text);
+      beep("sawtooth", 300, 100, 0.3, 0.08);
+      showScorecard();
+    }
+
+    function holeIn() {
+      state = "holedone";
+      const s = strokes[hole], par = H_().par, diff = s - par;
+      const name = s === 1 ? "HOLE IN ONE!!! 🎉" : diff <= -2 ? "EAGLE! 🦅" : diff === -1 ? "BIRDIE! 🐦" : diff === 0 ? "Par 👍" : diff === 1 ? "Bogey" : "+" + diff;
+      const prize = s === 1 ? 10 : diff <= -1 ? 5 : diff === 0 ? 3 : 1;
+      addCoins(prize);
+      if (s === 1) { try { localStorage.setItem("hdboc-holeinone", "yes"); } catch (e) {} }   // for the badge in the game
+      say(name + "  +" + prize + " 🪙");
+      messageT = 130;
+      [659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep("triangle", f, f, 0.18, 0.1); }, i * 120); });
+      showScorecard();
+    }
+
+    function finish() {
+      state = "over";
+      const total = strokes.reduce(function (a, b) { return a + b; }, 0);
+      if (!best || total < best) {
+        best = total;
+        try { localStorage.setItem("hdboc-golf-best", String(best)); } catch (e) {}
+      }
+      showScorecard();
+    }
+
+    function showScorecard() {
+      const table = document.getElementById("scorecard");
+      table.innerHTML = "";
+      const r1 = table.insertRow(), r2 = table.insertRow(), r3 = table.insertRow();
+      const label = function (row, text) { const th = document.createElement("th"); th.textContent = text; row.appendChild(th); };
+      label(r1, "Hole"); label(r2, "Par"); label(r3, "You");
+      let par = 0, total = 0;
+      HOLES.forEach(function (h, i) {
+        const th = document.createElement("th");
+        th.textContent = i + 1;
+        if (i === hole && state !== "over") th.className = "now";
+        r1.appendChild(th);
+        r2.insertCell().textContent = h.par;
+        par += h.par;
+        const c = r3.insertCell();
+        if (strokes[i] !== undefined && (i < hole || state === "holedone" || state === "over")) {
+          c.textContent = strokes[i];
+          total += strokes[i];
+          if (strokes[i] < h.par) c.className = "under";
+        } else if (i === hole) c.textContent = strokes[i] || "";
+      });
+      label(r1, "Total");
+      r2.insertCell().textContent = par;
+      const t = r3.insertCell(); t.textContent = total; t.className = "total";
+      document.getElementById("golf-best").textContent = (best ? "🏆 Your best round: " + best + " throws (par is " + par + ")" : "🏆 Finish all 6 holes to set a record!")
+        + "   ·   Coins this round: " + coinsWon;
+    }
+
+    // ----- AIMING: drag back like a slingshot, then let go -----
+    function spot(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+    }
+    function throwVector() {
+      const dx = aim.sx - aim.x, dy = aim.sy - aim.y;
+      const len = Math.sqrt(dx * dx + dy * dy);
+      if (len < 10) return null;
+      const power = Math.min(1, len / 160) * MAX_POWER;
+      return { vx: dx / len * power, vy: dy / len * power, power: power };
+    }
+    canvas.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (!audio) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audio = new AC(); }
+      if (audio && audio.state === "suspended") audio.resume();
+      if (state === "over") { restart(); return; }
+      if (state !== "aim") return;
+      const p = spot(e);
+      aim = { sx: p.x, sy: p.y, x: p.x, y: p.y };
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!aim) return;
+      const p = spot(e);
+      aim.x = p.x; aim.y = p.y;
+    });
+    canvas.addEventListener("pointerup", function () {
+      if (!aim) return;
+      const v = throwVector();
+      aim = null;
+      if (!v) return;
+      plane.vx = v.vx; plane.vy = v.vy;
+      plane.y -= 2;
+      strokes[hole]++;
+      trail = [];
+      state = "flying";
+      beep("triangle", 300, 700, 0.15, 0.1);
+      showScorecard();
+    });
+
+    function restart() {
+      hole = 0; strokes = []; coinsWon = 0;
+      startHole();
+    }
+
+    // ----- DRAWING -----
+    function comicText(text, x, y, size, color) {
+      ctx.font = "900 " + size + "px 'Comic Sans MS', 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = size / 5;
+      ctx.strokeStyle = "#111";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    }
+    function draw() {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#7cc4f2"); sky.addColorStop(1, "#d6effc");
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+      // clouds
+      ctx.fillStyle = "#ffffff";
+      [[120, 70], [470, 50], [690, 90]].forEach(function (c, i) {
+        const x = (c[0] + frame * 0.15 * (i + 1)) % (W + 120) - 60;
+        ctx.beginPath(); ctx.arc(x, c[1], 20, 0, Math.PI * 2); ctx.arc(x + 22, c[1] - 8, 24, 0, Math.PI * 2); ctx.arc(x + 46, c[1], 18, 0, Math.PI * 2); ctx.fill();
+      });
+      // ground
+      const g = H_().ground;
+      ctx.fillStyle = "#5aad44";
+      ctx.beginPath(); ctx.moveTo(0, H);
+      g.forEach(function (p) { ctx.lineTo(p[0], p[1]); });
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#2f7a2a"; ctx.lineWidth = 4;
+      ctx.beginPath(); g.forEach(function (p, i) { if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }); ctx.stroke();
+      // water
+      H_().water.forEach(function (w) {
+        ctx.fillStyle = "#3a8fd8";
+        ctx.beginPath(); ctx.moveTo(w[0], groundAt(w[0]) - 2);
+        for (let x = w[0]; x <= w[1]; x += 10) ctx.lineTo(x, Math.min(groundAt(w[0]), groundAt(w[1])) - 6 + Math.sin((x + frame) / 12) * 2);
+        ctx.lineTo(w[1], groundAt(w[1]) - 2);
+        for (let x = w[1]; x >= w[0]; x -= 10) ctx.lineTo(x, groundAt(x) + 2);
+        ctx.closePath(); ctx.fill();
+      });
+      // trees
+      H_().walls.forEach(function (w) {
+        const base = groundAt(w[0]);
+        ctx.fillStyle = "#6b4a2b"; ctx.fillRect(w[0] - 6, base - w[1] * 0.4, 12, w[1] * 0.4);
+        ctx.fillStyle = "#2f7a3a";
+        ctx.beginPath(); ctx.moveTo(w[0], base - w[1]); ctx.lineTo(w[0] - 28, base - w[1] * 0.35); ctx.lineTo(w[0] + 28, base - w[1] * 0.35); ctx.fill();
+        ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.stroke();
+      });
+      // the tee and the hole with its flag
+      const tee = H_().tee, cup = H_().cup, cy = groundAt(cup);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(tee - 10, groundAt(tee) - 2, 20, 4);
+      ctx.fillStyle = "#111"; ctx.beginPath(); ctx.ellipse(cup, cy, 16, 5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#111"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(cup, cy); ctx.lineTo(cup, cy - 70); ctx.stroke();
+      ctx.fillStyle = "#d33a2c";
+      ctx.beginPath(); ctx.moveTo(cup, cy - 70); ctx.lineTo(cup + 30 + Math.sin(frame / 10) * 3, cy - 60); ctx.lineTo(cup, cy - 50); ctx.fill();
+      // hoops
+      H_().hoops.forEach(function (h, i) {
+        ctx.strokeStyle = hoopsGot[i] ? "rgba(255,255,255,0.4)" : "#f2c230";
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.ellipse(h[0], h[1], 10, 26, 0, 0, Math.PI * 2); ctx.stroke();
+        if (hoopsGot[i]) comicText("✓", h[0], h[1] + 8, 18, "#7dff8a");
+      });
+      // the plane's path
+      ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+      trail.forEach(function (t) { ctx.fillRect(t.x - 2, t.y - 2, 4, 4); });
+      // aiming
+      if (aim) {
+        const v = throwVector();
+        if (v) {
+          // show the first part of where it will go
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+          let x = plane.x, y = plane.y, vx = v.vx, vy = v.vy;
+          for (let i = 0; i < 26; i++) {
+            vy += GRAVITY; vx += H_().wind; vx *= 0.997; x += vx; y += vy;
+            if (i % 2 === 0) { ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill(); }
+          }
+          const pct = Math.round(v.power / MAX_POWER * 100);
+          comicText("Power: " + pct + "%", W / 2, H - 14, 20, pct > 80 ? "#ff5a5a" : "#ffffff");
+        }
+      }
+      // the plane (seen from the side)
+      if (state !== "holedone" && state !== "over") {
+        const ang = state === "flying" ? Math.atan2(plane.vy, plane.vx) : (aim && throwVector() ? Math.atan2(throwVector().vy, throwVector().vx) : 0);
+        ctx.save();
+        ctx.translate(plane.x, plane.y);
+        ctx.rotate(ang);
+        ctx.fillStyle = "#ffffff"; ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-12, -9); ctx.lineTo(-6, 0); ctx.lineTo(-12, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+      // top bar
+      comicText("Hole " + (hole + 1) + " of " + HOLES.length + " · Par " + H_().par + " · Throws: " + (strokes[hole] || 0), W / 2, 30, 22, "#ffffff");
+      if (H_().wind) comicText("💨 Wind " + (H_().wind > 0 ? "→" : "←"), 70, 30, 18, "#ffffff");
+      if (state === "aim" && !aim && strokes[hole] === 0 && hole === 0) comicText("👆 Pull back and let go!", W / 2, 110, 22, "#f2c230");
+      if (messageT > 0) comicText(message, W / 2, 170, 34, "#f2c230");
+      if (state === "over") {
+        ctx.fillStyle = "rgba(15, 42, 74, 0.6)"; ctx.fillRect(0, 0, W, H);
+        const total = strokes.reduce(function (a, b) { return a + b; }, 0);
+        const par = HOLES.reduce(function (a, h) { return a + h.par; }, 0);
+        comicText("ROUND OVER!", W / 2, 140, 48, "#f2c230");
+        comicText(total + " throws (par " + par + ")", W / 2, 195, 30, "#ffffff");
+        comicText("+" + coinsWon + " 🪙 for the game · Best: " + best, W / 2, 240, 22, "#ffffff");
+        comicText("Tap to play again", W / 2, 300, 24, "#f2c230");
+      }
+    }
+
+    function loop() { update(); draw(); requestAnimationFrame(loop); }
+    restart();
+    loop();
+  </script>
+
+</body>
+</html>

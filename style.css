@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 42 badges = 14 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 45 badges = 15 neat rows of 3 */
   gap: 10px;
 }
 .badge {
@@ -2453,4 +2453,55 @@ tr.sold-out td {
 }
 .snowball-game .hint {
   text-align: center;
+}
+
+/* ===== BOWLING AND GOLF ===== */
+#lane,
+#course {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 16px auto;
+  border: 4px solid #111;
+  border-radius: 12px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  touch-action: none;
+  cursor: crosshair;
+}
+#lane {
+  max-width: 400px;
+}
+#course {
+  max-width: 800px;
+}
+.scorecard-wrap {
+  max-width: 800px;
+  margin: 0 auto;
+  overflow-x: auto;   /* scrolls sideways on small phones */
+}
+.scorecard {
+  margin: 0 auto;
+  border-collapse: collapse;
+  background: var(--surface);
+  font-weight: bold;
+}
+.scorecard th,
+.scorecard td {
+  min-width: 34px;
+  padding: 6px 4px;
+  border: 2px solid var(--text);
+  text-align: center;
+}
+.scorecard th {
+  background: var(--cream);
+}
+.scorecard th.now {
+  background: #f2c230;
+  color: #111;
+}
+.scorecard td.total {
+  font-size: 20px;
+}
+.scorecard td.under {
+  color: #2f8a46;
 }

@@ -52,7 +52,7 @@
 
   <script>
     // How many badges there are in the game (change this when you add more badges)
-    const TOTAL_BADGES = 42;
+    const TOTAL_BADGES = 45;
 
     const PLANES = {
       original: "The Original", looper: "Looper", skyfin: "Sky Fin",
@@ -129,6 +129,9 @@
       ["👾", Number(load("hdboc-rush-best", 0)) || 0, "Boss Rush best"],
       ["🏁", (load("hdboc-races", {}).wins || 0) + " / " + (load("hdboc-races", {}).played || 0), "races won"],
       ["🛒", Object.keys(owned).length, "shop items"],
+      ["❄️", Number(load("hdboc-snowball-best", 0)) || 0, "Snowball Fight best"],
+      ["🎳", Number(load("hdboc-bowling-best", 0)) || 0, "bowling best"],
+      ["⛳", Number(load("hdboc-golf-best", 0)) || "-", "golf best (fewest throws)"],
       ["❤️", favorite, "favorite plane"]
     ]);
     tiles("boss-stats", BOSSES.map(function (b) {

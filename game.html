@@ -176,6 +176,8 @@
       <a class="button" href="throw.html">🎯 Throwing Contest</a>
       <a class="button" href="two-player.html">👥 2-Player Mode</a>
       <a class="button" href="snowball.html">❄️ Snowball Fight</a>
+      <a class="button" href="bowling.html">🎳 Bowling</a>
+      <a class="button" href="golf.html">⛳ Golf</a>
       <a class="button" href="stats.html">📊 My Stats</a>
     </p>
 
@@ -573,7 +575,10 @@
       { id: "streak7",   icon: "📆", name: "Full Week",      how: "Come back 7 days in a row" },
       { id: "race",      icon: "🏁", name: "Checkered Flag", how: "Finish a race" },
       { id: "champ",     icon: "🥇", name: "Champion",       how: "Win a race" },
-      { id: "legend",    icon: "🏆", name: "Race Legend",    how: "Win 5 races" }
+      { id: "legend",    icon: "🏆", name: "Race Legend",    how: "Win 5 races" },
+      { id: "strike",    icon: "🎳", name: "Strike!",        how: "Bowl a strike in Paper Airplane Bowling" },
+      { id: "holeinone", icon: "⛳", name: "Hole in One",    how: "Get a hole in one in Paper Airplane Golf" },
+      { id: "snowpro",   icon: "❄️", name: "Snow Pro",       how: "Score 15 in the Snowball Fight" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -4016,6 +4021,9 @@
     try {
       if (localStorage.getItem("hdboc-secret") === "found") earn("secret");
       if (localStorage.getItem("hdboc-advent-opened") === "yes") earn("advent");
+      if (localStorage.getItem("hdboc-strike") === "yes") earn("strike");
+      if (localStorage.getItem("hdboc-holeinone") === "yes") earn("holeinone");
+      if ((Number(localStorage.getItem("hdboc-snowball-best")) || 0) >= 15) earn("snowpro");
     } catch (e) {}
     document.addEventListener("hdboc-secret", function () { earn("secret"); });   // typed the code right here!
     loop();
