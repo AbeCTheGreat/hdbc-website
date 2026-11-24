@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snowball Fight - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- SNOWBALL FIGHT -->
+  <section>
+    <a class="back" href="game.html">&larr; Back to the game</a>
+    <h2>❄️ Snowball Fight!</h2>
+    <p class="peek-intro">Barry and Lou are hiding behind the snow forts. When they pop up, click or tap them to throw a snowball!
+      Be quick, or they'll throw one back at you. Hit Biscuit 🐶 for 3 points!</p>
+
+    <div class="snowball-game">
+      <canvas id="snow" width="600" height="450" aria-label="Snowball fight game. Click or tap the characters when they pop up."></canvas>
+      <p class="hint">❤️ You have 3 hearts. If a snowball is coming at you, click it to block it!
+        Every 3 points = 1 coin for the <a href="game.html">Paper Airplane Game</a>.</p>
+    </div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // ===== SETTINGS =====
+    const GAME_TIME = 60;   // seconds in one round
+    const HEARTS = 3;       // how many snowballs you can take
+    // Who pops up. points = how many points they're worth. throws = do they throw back?
+    const POPPERS = [
+      { id: "barry",   img: "not-smart-cops.png", x: 215, y: 845, w: 230, h: 635, size: 120, points: 1, throws: true,  chance: 5 },
+      { id: "lou",     img: "not-smart-cops.png", x: 590, y: 960, w: 330, h: 520, size: 105, points: 1, throws: true,  chance: 5 },
+      { id: "biscuit", img: "peek-antis.png",     x: 415, y: 425, w: 100, h: 80,  size: 60,  points: 3, throws: false, chance: 1 }
+    ];
+
+    // ----- You don't need to change anything below this line -----
+
+    const canvas = document.getElementById("snow");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    const FORT_TOP = 300, FORT_H = 60, FORT_W = 96;
+    const FORTS = [70, 185, 300, 415, 530];   // the middle of each fort
+
+    const pictures = {};
+    POPPERS.forEach(function (p) {
+      if (!pictures[p.img]) { const im = new Image(); im.src = p.img; pictures[p.img] = im; }
+    });
+
+    let state = "start";   // "start", "playing", or "over"
+    let frame = 0, score = 0, hearts = HEARTS, timeLeft = GAME_TIME;
+    let up = [];        // characters popping up right now
+    let throws = [];    // your snowballs flying
+    let incoming = [];  // snowballs flying at YOU
+    let splats = [];    // snow splats on things
+    let screenSplat = 0;   // snow on your screen after you get hit!
+    let pops = [];      // "+1" messages
+    let nextPop = 40, coinsWon = 0;
+    let best = 0;
+    try { best = Number(localStorage.getItem("hdboc-snowball-best")) || 0; } catch (e) {}
+
+    // Falling snow (same spots every time)
+    const FLAKES = [];
+    for (let i = 0; i < 60; i++) FLAKES.push({ x: (i * 97) % W, y: (i * 61) % H, s: 1 + (i % 3) });
+
+    // ----- SOUNDS (made by the computer, no sound files) -----
+    let audio = null;
+    function beep(type, from, to, time, volume) {
+      if (!audio) return;
+      const t = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(from, t);
+      osc.frequency.exponentialRampToValueAtTime(to, t + time);
+      gain.gain.setValueAtTime(volume, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + time);
+      osc.connect(gain).connect(audio.destination);
+      osc.start(t); osc.stop(t + time);
+    }
+    const sound = {
+      throw: function () { beep("triangle", 300, 700, 0.12, 0.1); },
+      hit:   function () { beep("square", 220, 90, 0.15, 0.12); },
+      ouch:  function () { beep("sawtooth", 400, 120, 0.4, 0.12); },
+      block: function () { beep("triangle", 900, 1300, 0.1, 0.1); },
+      end:   function () { [523, 659, 784].forEach(function (f, i) { setTimeout(function () { beep("triangle", f, f, 0.2, 0.1); }, i * 140); }); }
+    };
+
+    function start() {
+      if (!audio) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audio = new AC(); }
+      if (audio && audio.state === "suspended") audio.resume();
+      state = "playing";
+      frame = 0; score = 0; hearts = HEARTS; timeLeft = GAME_TIME;
+      up = []; throws = []; incoming = []; splats = []; pops = []; screenSplat = 0; nextPop = 40;
+    }
+    function endGame() {
+      state = "over";
+      frame = 0;
+      coinsWon = Math.floor(score / 3);
+      try {
+        const wallet = Number(localStorage.getItem("hdboc-wallet")) || 0;
+        localStorage.setItem("hdboc-wallet", String(wallet + coinsWon));
+        if (score > best) { best = score; localStorage.setItem("hdboc-snowball-best", String(best)); }
+      } catch (e) {}
+      sound.end();
+    }
+
+    // Pick someone to pop up from a fort nobody is using
+    function popUp() {
+      const free = FORTS.map(function (x, i) { return i; }).filter(function (i) { return !up.some(function (u) { return u.fort === i; }); });
+      if (!free.length) return;
+      const bag = [];
+      POPPERS.forEach(function (p) { for (let i = 0; i < p.chance; i++) bag.push(p); });
+      const who = bag[Math.floor(Math.random() * bag.length)];
+      const hard = Math.min(1, frame / (GAME_TIME * 60));   // 0 at the start, 1 at the end
+      up.push({ who: who, fort: free[Math.floor(Math.random() * free.length)], h: 0, t: Math.round(100 - hard * 40), hit: false, gone: false });
+    }
+
+    function update() {
+      if (state !== "playing") return;
+      frame++;
+      timeLeft = GAME_TIME - Math.floor(frame / 60);
+      if (timeLeft <= 0) { endGame(); return; }
+      nextPop--;
+      const hard = Math.min(1, frame / (GAME_TIME * 60));
+      if (nextPop <= 0 && up.length < 3) { popUp(); nextPop = Math.round(70 - hard * 35 + Math.random() * 20); }
+
+      up.forEach(function (u) {
+        if (u.hit) { u.h -= 0.08; if (u.h <= 0) u.gone = true; return; }
+        if (u.t > 0) { u.h = Math.min(1, u.h + 0.12); u.t--; return; }
+        // Time's up! If they can throw, here comes a snowball...
+        if (u.who.throws && !u.threw) {
+          u.threw = true;
+          incoming.push({ x: FORTS[u.fort], y: FORT_TOP - 40, t: 0 });
+        }
+        u.h -= 0.12;
+        if (u.h <= 0) u.gone = true;
+      });
+      up = up.filter(function (u) { return !u.gone; });
+
+      // Your snowballs
+      throws.forEach(function (s) {
+        s.t++;
+        if (s.t === 14) {   // it lands!
+          let got = null;
+          up.forEach(function (u) {
+            if (u.hit || got) return;
+            const box = popperBox(u);
+            if (s.tx > box.x - 8 && s.tx < box.x + box.w + 8 && s.ty > box.y - 8 && s.ty < box.y + box.h) got = u;
+          });
+          if (got) {
+            got.hit = true;
+            score += got.who.points;
+            pops.push({ x: s.tx, y: s.ty - 20, t: 40, text: "+" + got.who.points });
+            sound.hit();
+          }
+          splats.push({ x: s.tx, y: s.ty, t: 40 });
+        }
+      });
+      throws = throws.filter(function (s) { return s.t < 14; });
+
+      // Snowballs flying at you: they get BIGGER as they come closer
+      incoming.forEach(function (b) {
+        b.t++;
+        if (b.t >= 55 && !b.blocked) {
+          b.done = true;
+          hearts--;
+          screenSplat = 70;
+          sound.ouch();
+          if (hearts <= 0) endGame();
+        }
+      });
+      incoming = incoming.filter(function (b) { return !b.done && !b.blocked; });
+      if (screenSplat > 0) screenSplat--;
+      splats.forEach(function (p) { p.t--; });
+      splats = splats.filter(function (p) { return p.t > 0; });
+      pops.forEach(function (p) { p.t--; p.y -= 1; });
+      pops = pops.filter(function (p) { return p.t > 0; });
+    }
+
+    // Where an incoming snowball is on the screen right now
+    function incomingSpot(b) {
+      const k = b.t / 55;
+      return { x: b.x + (W / 2 - b.x) * k, y: b.y + (H / 2 - b.y) * k - Math.sin(k * Math.PI) * 60, r: 8 + k * 60 };
+    }
+    // The box around the part of a character you can see
+    function popperBox(u) {
+      const p = u.who, w = p.size * p.w / p.h;
+      const top = FORT_TOP + 20 - p.size * u.h;
+      return { x: FORTS[u.fort] - w / 2, y: top, w: w, h: FORT_TOP - top };
+    }
+
+    // ----- DRAWING -----
+    function comicText(text, x, y, size, color) {
+      ctx.font = "900 " + size + "px 'Comic Sans MS', 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = size / 5;
+      ctx.strokeStyle = "#111";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    }
+    function snowball(x, y, r) {
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#9fb6d4";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+    function draw() {
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#9fc9ee"); sky.addColorStop(1, "#e7f3fd");
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+      // snowy hills
+      ctx.fillStyle = "#dfe9f5";
+      ctx.beginPath(); ctx.moveTo(0, 260); ctx.quadraticCurveTo(200, 200, 400, 250); ctx.quadraticCurveTo(520, 275, W, 230); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, FORT_TOP + 20, W, H);
+
+      // the characters, peeking up from behind the forts
+      up.forEach(function (u) {
+        const p = u.who, im = pictures[p.img], box = popperBox(u);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, 0, W, FORT_TOP + 20); ctx.clip();   // you can't see the part behind the fort
+        if (im.complete && im.naturalWidth) {
+          ctx.drawImage(im, p.x, p.y, p.w, p.h, box.x, box.y, box.w, p.size);
+        }
+        ctx.restore();
+        if (u.hit) comicText("💥", FORTS[u.fort], box.y + 30, 30, "#ffffff");
+      });
+
+      // the snow forts
+      FORTS.forEach(function (x) {
+        ctx.fillStyle = "#f4f8ff";
+        ctx.strokeStyle = "#9fb6d4";
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.roundRect(x - FORT_W / 2, FORT_TOP, FORT_W, FORT_H, 10); ctx.fill(); ctx.stroke();
+        ctx.lineWidth = 2;   // snow bricks
+        ctx.beginPath();
+        ctx.moveTo(x - FORT_W / 2, FORT_TOP + 20); ctx.lineTo(x + FORT_W / 2, FORT_TOP + 20);
+        ctx.moveTo(x - FORT_W / 2, FORT_TOP + 40); ctx.lineTo(x + FORT_W / 2, FORT_TOP + 40);
+        ctx.moveTo(x - 16, FORT_TOP); ctx.lineTo(x - 16, FORT_TOP + 20);
+        ctx.moveTo(x + 16, FORT_TOP); ctx.lineTo(x + 16, FORT_TOP + 20);
+        ctx.moveTo(x, FORT_TOP + 20); ctx.lineTo(x, FORT_TOP + 40);
+        ctx.moveTo(x - 24, FORT_TOP + 40); ctx.lineTo(x - 24, FORT_TOP + 60);
+        ctx.moveTo(x + 24, FORT_TOP + 40); ctx.lineTo(x + 24, FORT_TOP + 60);
+        ctx.stroke();
+      });
+
+      // falling snow
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      FLAKES.forEach(function (f, i) {
+        const y = (f.y + frame * (0.4 + f.s * 0.3)) % H;
+        ctx.beginPath(); ctx.arc(f.x + Math.sin((frame + i * 20) / 40) * 8, y, f.s, 0, Math.PI * 2); ctx.fill();
+      });
+
+      splats.forEach(function (p) {
+        ctx.globalAlpha = p.t / 40;
+        ctx.fillStyle = "#ffffff";
+        for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(p.x + Math.cos(i) * 12, p.y + Math.sin(i * 2) * 10, 7, 0, Math.PI * 2); ctx.fill(); }
+        ctx.globalAlpha = 1;
+      });
+      // your snowballs (they fly up from the bottom)
+      throws.forEach(function (s) {
+        const k = s.t / 14;
+        snowball(W / 2 + (s.tx - W / 2) * k, H + 10 + (s.ty - H - 10) * k - Math.sin(k * Math.PI) * 70, 14 - k * 6);
+      });
+      incoming.forEach(function (b) {
+        const sp = incomingSpot(b);
+        snowball(sp.x, sp.y, sp.r);
+        if (Math.floor(b.t / 6) % 2 === 0) comicText("CLICK TO BLOCK!", sp.x, sp.y - sp.r - 8, 16, "#ff5a5a");
+      });
+      pops.forEach(function (p) { comicText(p.text, p.x, p.y, 26, "#f2c230"); });
+
+      // SPLAT! on your screen
+      if (screenSplat > 0) {
+        ctx.globalAlpha = Math.min(1, screenSplat / 30);
+        ctx.fillStyle = "#ffffff";
+        [[300, 220, 120], [220, 160, 60], [390, 290, 70], [200, 300, 50], [400, 140, 45]].forEach(function (b) {
+          ctx.beginPath(); ctx.arc(b[0], b[1], b[2], 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+        comicText("SPLAT!", W / 2, H / 2 + 10, 48, "#5ad1ff");
+      }
+
+      // score, time, hearts
+      if (state === "playing") {
+        comicText("Score: " + score, 90, 40, 24, "#ffffff");
+        comicText("⏰ " + timeLeft, W / 2, 40, 24, timeLeft <= 10 ? "#ff5a5a" : "#ffffff");
+        comicText("❤️".repeat(Math.max(0, hearts)) + "🤍".repeat(HEARTS - Math.max(0, hearts)), W - 80, 40, 22, "#ffffff");
+      } else {
+        ctx.fillStyle = "rgba(15, 42, 74, 0.55)";
+        ctx.fillRect(0, 0, W, H);
+        if (state === "start") {
+          comicText("SNOWBALL FIGHT!", W / 2, 150, 48, "#ffffff");
+          comicText("Tap the characters when they pop up", W / 2, 205, 22, "#ffffff");
+          comicText("Tap or press Space to start", W / 2, 270, 26, "#f2c230");
+          comicText("Best: " + best, W / 2, 320, 22, "#ffffff");
+        } else {
+          comicText(hearts <= 0 ? "SNOWED UNDER!" : "TIME'S UP!", W / 2, 140, 48, "#ffffff");
+          comicText("Score: " + score, W / 2, 200, 34, "#f2c230");
+          comicText("Best: " + best + "   ·   +" + coinsWon + " 🪙 for the game", W / 2, 245, 22, "#ffffff");
+          if (frame > 40) comicText("Tap to play again", W / 2, 310, 26, "#f2c230");
+        }
+      }
+    }
+
+    // ----- CONTROLS -----
+    function spot(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+    }
+    canvas.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (state === "start") { start(); return; }
+      if (state === "over") { if (frame > 40) start(); return; }
+      const p = spot(e);
+      // Did you click a snowball that's coming at you? Block it!
+      for (const b of incoming) {
+        const sp = incomingSpot(b);
+        const dx = p.x - sp.x, dy = p.y - sp.y;
+        if (dx * dx + dy * dy < (sp.r + 12) * (sp.r + 12)) {
+          b.blocked = true;
+          score += 1;
+          pops.push({ x: sp.x, y: sp.y, t: 40, text: "Blocked! +1" });
+          splats.push({ x: sp.x, y: sp.y, t: 30 });
+          sound.block();
+          return;
+        }
+      }
+      throws.push({ tx: p.x, ty: p.y, t: 0 });
+      sound.throw();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.code === "Space" && state !== "playing" && (state === "start" || frame > 40)) {
+        e.preventDefault();
+        start();
+      }
+    });
+
+    function loop() {
+      update();
+      if (state !== "playing") frame++;
+      draw();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+
+</body>
+</html>

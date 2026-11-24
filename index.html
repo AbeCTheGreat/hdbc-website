@@ -114,6 +114,7 @@
       <a class="button" href="advent.html">📅 Open the Advent Calendar</a>
       <a class="button" href="coloring.html">🖍️ Coloring pages</a>
       <a class="button" href="card-maker.html">💌 Make a holiday card</a>
+      <a class="button" href="snowball.html">❄️ Snowball Fight</a>
     </div>
     <div class="products">
 
@@ -155,6 +156,17 @@
     </div>
   </section>
 
+  <!-- JOKE OF THE DAY: a new joke every day (the jokes are in the script at the bottom) -->
+  <section id="joke">
+    <h2>😂 Joke of the Day</h2>
+    <div class="joke-box">
+      <p class="joke-q" id="joke-q"></p>
+      <button type="button" class="button" id="joke-button">Show the answer</button>
+      <p class="joke-a" id="joke-a" hidden></p>
+      <p class="joke-note">Come back tomorrow for a new joke!</p>
+    </div>
+  </section>
+
   <!-- ABOUT -->
   <section id="about">
     <h2>About Us</h2>
@@ -169,6 +181,60 @@
     <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
     &copy; 2026 HDBOC Paper Products
   </footer>
+
+  <script>
+    // ===== JOKES =====
+    // One joke shows each day, then the next one, and so on.
+    // Add your own! q = the question, a = the answer.
+    const JOKES = [
+      { q: "Why did the paper airplane go to school?", a: "It was tired of just winging it!" },
+      { q: "What do you call a paper airplane that won't fly?", a: "A piece of paper!" },
+      { q: "Why was the comic book so cold?", a: "It had too many drafts!" },
+      { q: "What's a paper airplane's favorite food?", a: "Plane pasta!" },
+      { q: "Why don't comic books ever get lost?", a: "They always follow the plot!" },
+      { q: "What did one paper airplane say to the other?", a: "You're looking fly today!" },
+      { q: "Why did Gus bring a bagel to the baseball game?", a: "He wanted to make a dough-ble play!" },
+      { q: "How does a paper airplane say goodbye?", a: "Fold you later!" },
+      { q: "Why was the math book sad?", a: "It had too many problems." },
+      { q: "What do you call a dog that does magic tricks?", a: "A labracadabrador!" },
+      { q: "Why can't a bicycle stand up by itself?", a: "It's two tired!" },
+      { q: "What's PrayingAntis's favorite sport?", a: "Cricket!" },
+      { q: "Why did the paper airplane break up with the kite?", a: "There were too many strings attached!" },
+      { q: "Why did Lou stare at the orange juice?", a: "Because it said CONCENTRATE!" },
+      { q: "What's the best way to talk to a paper airplane?", a: "Use plane language!" },
+      { q: "Why did the comic book go to the doctor?", a: "It had a bad case of the bubbles!" },
+      { q: "What do you call a sleeping dinosaur?", a: "A dino-snore!" },
+      { q: "How do bees get to school?", a: "On the school buzz!" },
+      { q: "Why was Biscuit sitting in the shade?", a: "He didn't want to be a hot dog!" },
+      { q: "What has wings but never flaps?", a: "A paper airplane!" },
+      { q: "Why do baseball players make good cooks?", a: "They know how to handle the batter!" },
+      { q: "What did the paper say to the pencil?", a: "Write on!" },
+      { q: "Why did the cookie go to the nurse?", a: "It felt crummy." },
+      { q: "What do you call a bear with no teeth?", a: "A gummy bear!" },
+      { q: "Why was the paper airplane so good at tests?", a: "It knew all the folds!" },
+      { q: "What do snowmen eat for breakfast?", a: "Frosted flakes!" },
+      { q: "Why did the dragon stop telling jokes?", a: "People kept getting burned!" },
+      { q: "Why did Barry and Lou bring a net to work?", a: "To catch the mosquito that beat them last time!" },
+      { q: "What kind of plane is always sleepy?", a: "A snooze-plane!" },
+      { q: "Why are comic books never lonely?", a: "They come in a series!" },
+      { q: "What did the ocean say to the paper airplane?", a: "Nothing, it just waved!" }
+    ];
+
+    // ----- You don't need to change anything below this line -----
+    (function () {
+      const now = new Date();
+      const day = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
+      const joke = JOKES[day % JOKES.length];
+      document.getElementById("joke-q").textContent = joke.q;
+      const answer = document.getElementById("joke-a");
+      answer.textContent = joke.a;
+      const button = document.getElementById("joke-button");
+      button.addEventListener("click", function () {
+        answer.hidden = false;
+        button.hidden = true;
+      });
+    })();
+  </script>
 
 </body>
 </html>

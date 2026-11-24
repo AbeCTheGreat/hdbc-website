@@ -255,7 +255,7 @@
           const c = CHARACTERS.find(function (x) { return x.id === it.id; });
           const im = pictures[c.img];
           const w = it.size * c.w / c.h;
-          if (im.complete && im.naturalWidth) ctx.drawImage(im, c.x - c.w / 2, c.y - c.h / 2, c.w, c.h, -w / 2, -it.size / 2, w, it.size);
+          if (im.complete && im.naturalWidth) ctx.drawImage(im, c.x, c.y, c.w, c.h, -w / 2, -it.size / 2, w, it.size);
         } else {
           ctx.font = it.size + "px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
           ctx.textAlign = "center";
