@@ -145,6 +145,14 @@
       <button type="button" id="ghost-button" class="sound-button" aria-pressed="true">👻 Ghost on</button>
     </div>
 
+    <!-- SOUND SETTINGS: how loud the sounds and the music are -->
+    <details class="sound-settings">
+      <summary>🔊 Sound settings</summary>
+      <label>💥 Sound effects <input type="range" id="sfx-volume" min="0" max="200" step="10"> <span id="sfx-number"></span></label>
+      <label>🎵 Music <input type="range" id="music-volume" min="0" max="200" step="10"> <span id="music-number"></span></label>
+      <button type="button" id="test-sound" class="sound-button">🔔 Test it</button>
+    </details>
+
     <p class="game-help">🪙 Grab the gold coins for <strong>+1 bonus point</strong> each!<br>
       Watch for rare power-ups: 🧲 <strong>Magnet</strong> pulls coins to you, ⏱️ <strong>Slow-Mo</strong> slows everything down.<br>
       🌙 Make it to <strong>20 points</strong> and night falls!<br>
@@ -159,7 +167,7 @@
       ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, a giant snowman at 75 points, and a sneaky gift thief at 125!<br>
       🌀 Keep your eyes open after 30 points... a secret portal might show up! There are <strong>two</strong> secret worlds to find.<br>
       📖 <strong>Story mode:</strong> 5 levels starring the HDBOC characters. Can you finish the story?<br>
-      🐶 Buy a <strong>flying buddy</strong> in the Coin Shop. It flies next to you and grabs coins!</p>
+      🐾 Get a <strong>flying buddy</strong> in the Pet Shop. It flies next to you and grabs coins. Some have special powers!</p>
 
     <!-- MORE GAMES -->
     <p class="more-games">
@@ -174,6 +182,10 @@
       <p>You have <strong id="wallet">0</strong> 🪙 to spend. Every coin you grab in the game gets saved here!</p>
       <div class="shop-items" id="shop-items"></div>
       <!-- UPGRADES: make your power-ups better. The script fills it in. -->
+      <!-- PET SHOP: flying buddies. Each one has its own power! -->
+      <h4 class="pets-title">🐾 Pet Shop</h4>
+      <p class="pets-about">A flying buddy follows you and grabs coins. The new ones have special powers!</p>
+      <div class="shop-items" id="pet-items"></div>
       <h4 class="upgrades-title">⬆️ Upgrades</h4>
       <div class="shop-items upgrades" id="upgrade-items"></div>
     </div>
@@ -314,6 +326,13 @@
     let audio = null;
     let soundOn = true;
     try { soundOn = localStorage.getItem("hdboc-sound") !== "off"; } catch (e) {}
+    // Volume: 100 = normal, 0 = silent, 200 = extra loud
+    let sfxVolume = 100, musicVolume = 100;
+    try {
+      const sv = localStorage.getItem("hdboc-sfx-volume"), mv = localStorage.getItem("hdboc-music-volume");
+      if (sv !== null) sfxVolume = Number(sv);
+      if (mv !== null) musicVolume = Number(mv);
+    } catch (e) {}
 
     function startAudio() {
       // Browsers only allow sound after you click or tap, so we start it then
@@ -327,6 +346,8 @@
     // A beep: wave type, start pitch, end pitch, how long, how loud
     function beep(type, from, to, time, volume) {
       if (!soundOn || !audio) return;
+      volume *= sfxVolume / 100;
+      if (volume < 0.002) return;   // too quiet to hear
       const t = audio.currentTime;
       const osc = audio.createOscillator();
       const gain = audio.createGain();
@@ -343,6 +364,8 @@
     // A whoosh or crunch: a burst of static, filtered to sound soft or rough
     function noise(time, volume, filterFreq) {
       if (!soundOn || !audio) return;
+      volume *= sfxVolume / 100;
+      if (volume < 0.002) return;
       const t = audio.currentTime;
       const length = Math.floor(audio.sampleRate * time);
       const buffer = audio.createBuffer(1, length, audio.sampleRate);
@@ -441,6 +464,8 @@
 
     function musicNote(type, freq, time, volume) {
       if (!audio || !freq) return;
+      volume *= musicVolume / 100;
+      if (volume < 0.001) return;
       const t = audio.currentTime;
       const osc = audio.createOscillator();
       const gain = audio.createGain();
@@ -478,6 +503,29 @@
       showMusic();
     });
     showMusic();
+
+    // The volume sliders
+    function volumeSlider(id, numberId, get, set, key) {
+      const slider = document.getElementById(id);
+      const number = document.getElementById(numberId);
+      slider.value = get();
+      number.textContent = get() + "%";
+      slider.addEventListener("input", function () {
+        set(Number(slider.value));
+        number.textContent = slider.value + "%";
+        try { localStorage.setItem(key, slider.value); } catch (e) {}
+      });
+    }
+    volumeSlider("sfx-volume", "sfx-number", function () { return sfxVolume; }, function (v) { sfxVolume = v; }, "hdboc-sfx-volume");
+    volumeSlider("music-volume", "music-number", function () { return musicVolume; }, function (v) { musicVolume = v; }, "hdboc-music-volume");
+    document.getElementById("test-sound").addEventListener("click", function () {
+      startAudio();
+      play("coin");
+      setTimeout(function () {
+        const m = currentSong();
+        for (let i = 0; i < 6; i++) setTimeout(function () { musicNote("triangle", m.m[i], 0.14, 0.05); musicNote("square", m.b[i], 0.3, 0.025); }, i * 150);
+      }, 300);
+    });
 
     // ----- BADGES (ACHIEVEMENTS) -----
     const BADGES = [
@@ -596,6 +644,7 @@
     let buddy = "none";   // your flying buddy
     try { buddy = localStorage.getItem("hdboc-buddy") || "none"; } catch (e) {}
     let buddyPos = { x: 50, y: 270 };
+    let dragonTimer = 0, dragonFire = null;   // Sparky the dragon's fire breath
     let hat = "none";
     try { hat = localStorage.getItem("hdboc-hat") || "none"; } catch (e) {}
     if (hat !== "none" && !owned[hat]) hat = "none";
@@ -613,9 +662,12 @@
       { id: "crown",     type: "hat",  icon: "👑", name: "Crown",         price: 75 },
       { id: "star",      type: "hat",  icon: "🌟", name: "Star Hat",      price: 0, gift: true },   // from the Advent Calendar
       { id: "newyear",   type: "hat",  icon: "🥳", name: "New Year Hat",  price: 0, gift: true },   // free during New Year's week
-      { id: "pup",       type: "buddy", icon: "🐶", name: "Puppy Biscuit", price: 40 },
-      { id: "minicop",   type: "buddy", icon: "🚓", name: "Mini Cop Car",  price: 50 },
-      { id: "minibug",   type: "buddy", icon: "🦗", name: "Mini Antis",    price: 60 }
+      { id: "pup",       type: "buddy", icon: "🐶", name: "Puppy Biscuit", price: 40,  about: "Grabs coins near you" },
+      { id: "minicop",   type: "buddy", icon: "🚓", name: "Mini Cop Car",  price: 50,  about: "Grabs coins near you" },
+      { id: "minibug",   type: "buddy", icon: "🦗", name: "Mini Antis",    price: 60,  about: "Grabs coins near you" },
+      { id: "bird",      type: "buddy", icon: "🐦", name: "Birdie",        price: 70,  about: "Super fast! Grabs coins from far away" },
+      { id: "bee",       type: "buddy", icon: "🐝", name: "Buzzy Bee",     price: 85,  about: "Honey coins: coins it grabs are worth 2" },
+      { id: "dragon",    type: "buddy", icon: "🐉", name: "Sparky",        price: 120, about: "A tiny dragon! Burns up a danger every 8 seconds" }
     ];
 
     // ----- UPGRADES -----
@@ -687,6 +739,8 @@
       document.getElementById("wallet").textContent = wallet;
       const box = document.getElementById("shop-items");
       box.innerHTML = "";
+      const petBox = document.getElementById("pet-items");   // buddies go in the Pet Shop
+      petBox.innerHTML = "";
       SHOP.forEach(function (item) {
         if (item.gift && !owned[item.id]) return;   // gifts only show up once you have them
         const card = document.createElement("div");
@@ -731,8 +785,14 @@
           showShop();
           showSkins();
         });
-        card.append(icon, name, b);
-        box.appendChild(card);
+        card.append(icon, name);
+        if (item.about) {
+          const about = document.createElement("small");
+          about.textContent = item.about;
+          card.appendChild(about);
+        }
+        card.appendChild(b);
+        (item.type === "buddy" ? petBox : box).appendChild(card);
       });
       showUpgrades();
     }
@@ -1147,6 +1207,8 @@
         ghostData = null;   // no ghost in Boss Rush
       }
       buddyPos = { x: 50, y: H / 2 - 30 };
+      dragonTimer = 300;
+      dragonFire = null;
       if (mode === "story") {
         // Story mode: each level has its own goal, then its own boss
         bossDone = true; copsDone = true; antisDone = true; snowDone = true;
@@ -1418,12 +1480,36 @@
       // FLYING BUDDY: follows you, and zooms over to grab coins that are close
       if (buddy !== "none") {
         let tx = plane.x - 34, ty = plane.y - 28 + Math.sin(frame / 15) * 4;
+        const far = buddy === "bird";   // Birdie reaches much farther
         const near = coins.find(function (c) {
-          return !c.got && c.x > plane.x - 20 && c.x < plane.x + 150 && Math.abs(c.y - plane.y) < 150;
+          return !c.got && c.x > plane.x - 20 && c.x < plane.x + (far ? 320 : 150) && Math.abs(c.y - plane.y) < (far ? 240 : 150);
         });
         if (near) { tx = near.x; ty = near.y; }
-        buddyPos.x += (tx - buddyPos.x) * 0.12;
-        buddyPos.y += (ty - buddyPos.y) * 0.12;
+        const zoom = far ? 0.22 : 0.12;
+        buddyPos.x += (tx - buddyPos.x) * zoom;
+        buddyPos.y += (ty - buddyPos.y) * zoom;
+      }
+      // SPARKY THE DRAGON: every 8 seconds, burns up the closest danger in front of you
+      if (buddy === "dragon") {
+        if (dragonTimer > 0) dragonTimer--;
+        if (dragonFire) { dragonFire.t--; if (dragonFire.t <= 0) dragonFire = null; }
+        if (dragonTimer <= 0) {
+          let target = null, best = 99999;
+          [barks, donuts, fireballs, snowballs, rocks].forEach(function (list) {
+            (list || []).forEach(function (d) {
+              if (d.warn > 0 || d.x < plane.x - 10 || d.x > plane.x + 320) return;
+              const dist = Math.abs(d.x - plane.x) + Math.abs(d.y - plane.y);
+              if (dist < best) { best = dist; target = d; }
+            });
+          });
+          if (target) {
+            dragonFire = { x1: buddyPos.x, y1: buddyPos.y, x2: target.x, y2: target.y, t: 18 };
+            pops.push({ x: target.x, y: target.y, t: 45, text: "🔥 TOAST!" });
+            target.x = -999;   // gone! (it gets cleaned up off the screen)
+            dragonTimer = 480;
+            play("fire");
+          }
+        }
       }
 
       // Slow-mo makes the world move at half speed
@@ -1486,6 +1572,7 @@
           if (water > 0.5) pearlsThisGame++;
           if (lava > 0.5) rubiesThisGame++;
           wallet++;
+          if (buddy === "bee" && bx * bx + by * by < 22 * 22) { wallet++; pops.push({ x: c.x, y: c.y - 18, t: 40, text: "🍯 x2" }); }   // honey coin!
           try { localStorage.setItem("hdboc-wallet", String(wallet)); } catch (e) {}
           play("coin");
           pops.push({ x: c.x, y: c.y, t: 40 });
@@ -3505,6 +3592,41 @@
         ctx.fillStyle = "#2f55a0";
         ctx.fillRect(-9, -8, 11, 3);                                                              // blue mask
         ctx.beginPath(); ctx.moveTo(-3, -12); ctx.lineTo(-8, -17); ctx.stroke();                  // antenna
+      } else if (buddy === "bird") {
+        ctx.fillStyle = "#3a8fd8";
+        ctx.beginPath(); ctx.ellipse(2, 2, 10, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();    // body
+        ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(18, -4); ctx.lineTo(17, 5); ctx.closePath(); ctx.fill(); ctx.stroke();   // tail
+        ctx.beginPath(); ctx.arc(-8, -3, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();             // head
+        ctx.fillStyle = "#f2a900";
+        ctx.beginPath(); ctx.moveTo(-13, -4); ctx.lineTo(-19, -2); ctx.lineTo(-13, 0); ctx.closePath(); ctx.fill();   // beak
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.ellipse(1, 5, 6, 3, 0, 0, Math.PI * 2); ctx.fill();                   // belly
+        ctx.fillStyle = "#111";
+        ctx.beginPath(); ctx.arc(-9, -5, 1.5, 0, Math.PI * 2); ctx.fill();                         // eye
+      } else if (buddy === "bee") {
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath(); ctx.ellipse(2, 2, 11, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();    // body
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, -4, 3, 12); ctx.fillRect(6, -4, 3, 12);                                    // stripes
+        ctx.beginPath(); ctx.moveTo(13, 1); ctx.lineTo(18, 2); ctx.lineTo(13, 4); ctx.fill();       // stinger
+        ctx.beginPath(); ctx.arc(-9, 0, 5, 0, Math.PI * 2); ctx.fill();                            // head
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(-10, -4); ctx.lineTo(-14, -10); ctx.moveTo(-8, -4); ctx.lineTo(-8, -11); ctx.stroke();   // antennae
+      } else if (buddy === "dragon") {
+        ctx.fillStyle = "#3aa84a";
+        ctx.beginPath(); ctx.moveTo(10, 2); ctx.quadraticCurveTo(20, 8, 22, -2); ctx.lineTo(18, 4); ctx.quadraticCurveTo(14, 8, 8, 6); ctx.fill(); ctx.stroke();   // tail
+        ctx.beginPath(); ctx.ellipse(3, 2, 10, 7, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();    // body
+        ctx.beginPath(); ctx.ellipse(-10, -3, 8, 5.5, -0.2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();   // head
+        ctx.fillStyle = "#f2c230";
+        ctx.beginPath(); ctx.moveTo(-8, -8); ctx.lineTo(-6, -14); ctx.lineTo(-4, -7); ctx.fill();   // horn
+        ctx.fillStyle = "#ffe08a";
+        ctx.beginPath(); ctx.ellipse(3, 6, 6, 2.5, 0, 0, Math.PI * 2); ctx.fill();                  // belly
+        ctx.fillStyle = "#111";
+        ctx.beginPath(); ctx.arc(-12, -5, 1.5, 0, Math.PI * 2); ctx.fill();                         // eye
+        if (dragonTimer < 60 && Math.floor(frame / 6) % 2) {   // smoke puffs: fire is almost ready!
+          ctx.fillStyle = "rgba(120, 120, 120, 0.6)";
+          ctx.beginPath(); ctx.arc(-20, -6, 2.5, 0, Math.PI * 2); ctx.fill();
+        }
       } else if (buddy === "minicop") {
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(-12, -5, 24, 10); ctx.strokeRect(-12, -5, 24, 10);
@@ -3515,6 +3637,20 @@
         ctx.fillStyle = "#111";
         ctx.beginPath(); ctx.arc(-7, 6, 3, 0, Math.PI * 2); ctx.arc(7, 6, 3, 0, Math.PI * 2); ctx.fill();
       }
+      ctx.restore();
+    }
+
+    // Sparky's fire breath
+    function drawDragonFire() {
+      if (!dragonFire) return;
+      ctx.save();
+      ctx.globalAlpha = dragonFire.t / 18;
+      ctx.lineCap = "round";
+      [["#ff5a00", 14], ["#ffb000", 8], ["#ffe66d", 3]].forEach(function (f) {
+        ctx.strokeStyle = f[0];
+        ctx.lineWidth = f[1];
+        ctx.beginPath(); ctx.moveTo(dragonFire.x1, dragonFire.y1); ctx.lineTo(dragonFire.x2, dragonFire.y2); ctx.stroke();
+      });
       ctx.restore();
     }
 
@@ -3580,6 +3716,7 @@
       if (state !== "start") drawPlane();
       if (live) drawShield();
       if (live) drawBuddy(buddyPos.x, buddyPos.y, 1);
+      if (live) drawDragonFire();
       if (live) drawWeather();
 
       if (live) {

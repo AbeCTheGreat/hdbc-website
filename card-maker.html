@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Holiday Card Maker - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body class="card-body">
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- HOLIDAY CARD MAKER -->
+  <section>
+    <h2>💌 Holiday Card Maker</h2>
+    <p class="peek-intro">Make a holiday card for your friends and family! Print it out or save it as a picture.</p>
+
+    <div class="maker">
+      <!-- STEP 1: background -->
+      <div class="maker-row">
+        <strong>1. Pick a background:</strong>
+        <div class="maker-buttons" id="bg-buttons">
+          <button type="button" data-bg="night" class="on">🌙 Snowy night</button>
+          <button type="button" data-bg="day">🌲 Winter day</button>
+          <button type="button" data-bg="fire">🔥 Cozy fireplace</button>
+          <button type="button" data-bg="candy">🍬 Candy cane</button>
+          <button type="button" data-bg="paper">📜 Plain paper</button>
+          <button type="button" id="snow-button" class="on">❄️ Falling snow</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: what it says -->
+      <div class="maker-row">
+        <strong>2. Pick the words:</strong>
+        <div class="maker-buttons">
+          <select id="title" aria-label="Big words on the card">
+            <option>Happy Holidays!</option>
+            <option>Merry Christmas!</option>
+            <option>Happy Hanukkah!</option>
+            <option>Happy New Year!</option>
+            <option>Season's Greetings!</option>
+            <option>Let It Snow!</option>
+            <option value="">(no big words)</option>
+          </select>
+          <input type="text" id="message" maxlength="60" placeholder="Your message (like: To Grandma, love from me!)" aria-label="Your message">
+        </div>
+      </div>
+
+      <!-- STEP 3: stickers (the script adds the buttons) -->
+      <div class="maker-row">
+        <strong>3. Add stickers and characters:</strong>
+        <div class="maker-buttons" id="sticker-buttons"></div>
+        <div class="maker-buttons" id="char-buttons" style="margin-top: 8px;"></div>
+      </div>
+
+      <!-- THE CARD -->
+      <canvas id="card" width="800" height="560" aria-label="Your holiday card. Drag the stickers to move them."></canvas>
+
+      <div class="maker-buttons maker-tools">
+        <button type="button" id="bigger">➕ Bigger</button>
+        <button type="button" id="smaller">➖ Smaller</button>
+        <button type="button" id="flip">↔️ Flip</button>
+        <button type="button" id="remove">🗑️ Delete</button>
+        <button type="button" id="clear">🧹 Start over</button>
+        <button type="button" id="print">🖨️ Print</button>
+        <button type="button" id="save" class="save-comic">💾 Save my card</button>
+      </div>
+      <p class="hint">Click a sticker on your card to pick it. Drag it to move it!</p>
+    </div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <script>
+    // ===== STICKERS =====
+    // Add more emoji stickers here!
+    const STICKERS = ["✈️", "🎄", "⛄", "🎁", "⭐", "❄️", "🦌", "🔔", "🕎", "🍪", "☕", "🧦", "🎅", "🎆"];
+
+    // ===== CHARACTERS =====
+    // Cut out of our comic covers (same numbers as on the characters page)
+    const CHARACTERS = [
+      { id: "barry",   name: "Barry",        img: "not-smart-cops.png",   x: 215, y: 845,  w: 230, h: 635, size: 240 },
+      { id: "lou",     name: "Lou",          img: "not-smart-cops.png",   x: 590, y: 960,  w: 330, h: 520, size: 200 },
+      { id: "antis",   name: "PrayingAntis", img: "praying-antis.png",    x: 290, y: 640,  w: 520, h: 820, size: 250 },
+      { id: "biscuit", name: "Biscuit",      img: "peek-antis.png",       x: 415, y: 425,  w: 100, h: 80,  size: 100 },
+      { id: "gus",     name: "Gus",          img: "not-smart-sports.png", x: 355, y: 890,  w: 240, h: 590, size: 240 },
+      { id: "ray",     name: "Ray",          img: "not-smart-sports.png", x: 730, y: 1060, w: 230, h: 440, size: 200 }
+    ];
+
+    // ----- You don't need to change anything below this line -----
+
+    const canvas = document.getElementById("card");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    let bg = "night", snowOn = true;
+    let items = [];       // stickers and characters on the card
+    let selected = null;
+    let drag = null;
+
+    const pictures = {};
+    CHARACTERS.forEach(function (c) {
+      if (!pictures[c.img]) {
+        const im = new Image();
+        im.src = c.img;
+        im.onload = function () { draw(); };
+        pictures[c.img] = im;
+      }
+    });
+
+    // Snowflakes stay in the same spots (so the card doesn't change every time it redraws)
+    const FLAKES = [];
+    for (let i = 0; i < 70; i++) FLAKES.push({ x: (i * 137) % W, y: (i * 89) % H, r: 2 + (i % 3) });
+
+    // ----- BACKGROUNDS -----
+    function drawBackground() {
+      if (bg === "night") {
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, "#0b1638"); sky.addColorStop(1, "#2f4a8a");
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#fff6c9";
+        ctx.beginPath(); ctx.arc(670, 90, 40, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#0f1c45";
+        ctx.beginPath(); ctx.arc(688, 80, 36, 0, Math.PI * 2); ctx.fill();   // moon
+        ctx.fillStyle = "#ffffff";
+        for (let i = 0; i < 40; i++) ctx.fillRect((i * 211) % W, (i * 53) % 260, 2, 2);   // stars
+        hills("#e8eef8", "#c9d6ee");
+      } else if (bg === "day") {
+        const sky = ctx.createLinearGradient(0, 0, 0, H);
+        sky.addColorStop(0, "#7cc4f2"); sky.addColorStop(1, "#e3f3fd");
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        hills("#ffffff", "#dfe9f5");
+        [[90, 400, 1], [170, 420, 0.8], [640, 395, 1.1], [720, 425, 0.75]].forEach(function (t) { tree(t[0], t[1], t[2]); });
+      } else if (bg === "fire") {
+        ctx.fillStyle = "#7a1f1f"; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = "rgba(0,0,0,0.15)"; ctx.lineWidth = 2;   // wallpaper stripes
+        for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+        ctx.fillStyle = "#6b4a2b"; ctx.fillRect(0, 470, W, 90);    // floor
+        // the fireplace
+        ctx.fillStyle = "#a9503a"; ctx.fillRect(250, 250, 300, 220);
+        ctx.strokeStyle = "#6e2f22"; ctx.lineWidth = 2;
+        for (let y = 250; y < 470; y += 22) {
+          ctx.beginPath(); ctx.moveTo(250, y); ctx.lineTo(550, y); ctx.stroke();
+          for (let x = 250 + ((y / 22) % 2) * 25; x < 550; x += 50) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 22); ctx.stroke(); }
+        }
+        ctx.fillStyle = "#3a2a20"; ctx.fillRect(230, 235, 340, 22);   // mantel
+        ctx.fillStyle = "#111"; ctx.fillRect(310, 330, 180, 140);
+        // fire
+        [["#ff5a00", 70, 90], ["#ffb000", 50, 65], ["#ffe66d", 28, 40]].forEach(function (f) {
+          ctx.fillStyle = f[0];
+          ctx.beginPath(); ctx.moveTo(400 - f[1], 470); ctx.quadraticCurveTo(400 - f[1] / 2, 470 - f[2], 400, 470 - f[2] * 1.4);
+          ctx.quadraticCurveTo(400 + f[1] / 2, 470 - f[2], 400 + f[1], 470); ctx.fill();
+        });
+        // stockings
+        [[285, "#d33a2c"], [400, "#2f9a4a"], [515, "#d33a2c"]].forEach(function (s) {
+          ctx.fillStyle = s[1];
+          ctx.fillRect(s[0] - 12, 257, 24, 45);
+          ctx.beginPath(); ctx.ellipse(s[0] - 2, 302, 22, 12, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#ffffff"; ctx.fillRect(s[0] - 14, 257, 28, 10);
+        });
+      } else if (bg === "candy") {
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, W, H);
+        ctx.save();
+        ctx.fillStyle = "#e63946";
+        for (let x = -H; x < W + H; x += 60) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 30, 0); ctx.lineTo(x + 30 + H, H); ctx.lineTo(x + H, H); ctx.fill();
+        }
+        ctx.restore();
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(50, 50, W - 100, H - 100);   // a white space in the middle
+      } else {
+        ctx.fillStyle = "#fff8e8"; ctx.fillRect(0, 0, W, H);
+        // holly in the corners
+        [[40, 40], [W - 40, 40], [40, H - 40], [W - 40, H - 40]].forEach(function (p) {
+          ctx.fillStyle = "#2f9a4a";
+          ctx.beginPath(); ctx.ellipse(p[0] - 14, p[1], 18, 8, 0.5, 0, Math.PI * 2); ctx.ellipse(p[0] + 14, p[1], 18, 8, -0.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#d33a2c";
+          ctx.beginPath(); ctx.arc(p[0] - 4, p[1] - 4, 6, 0, Math.PI * 2); ctx.arc(p[0] + 5, p[1] - 2, 6, 0, Math.PI * 2); ctx.fill();
+        });
+      }
+      if (snowOn && bg !== "fire") {
+        ctx.fillStyle = bg === "candy" || bg === "paper" ? "rgba(120, 170, 220, 0.6)" : "rgba(255, 255, 255, 0.9)";
+        FLAKES.forEach(function (f) { ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill(); });
+      }
+      // gold border
+      ctx.strokeStyle = "#e0a800"; ctx.lineWidth = 10; ctx.strokeRect(5, 5, W - 10, H - 10);
+    }
+    function hills(front, back) {
+      ctx.fillStyle = back;
+      ctx.beginPath(); ctx.moveTo(0, 430); ctx.quadraticCurveTo(250, 360, 520, 420); ctx.quadraticCurveTo(680, 450, W, 400); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+      ctx.fillStyle = front;
+      ctx.beginPath(); ctx.moveTo(0, 470); ctx.quadraticCurveTo(300, 420, 560, 480); ctx.quadraticCurveTo(700, 505, W, 470); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+    }
+    function tree(x, y, s) {
+      ctx.fillStyle = "#6b4a2b"; ctx.fillRect(x - 8 * s, y, 16 * s, 30 * s);
+      ctx.fillStyle = "#2f7a3a";
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath(); ctx.moveTo(x, y - (110 - i * 30) * s); ctx.lineTo(x - (35 + i * 12) * s, y - (40 - i * 20) * s); ctx.lineTo(x + (35 + i * 12) * s, y - (40 - i * 20) * s); ctx.fill();
+      }
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath(); ctx.arc(x, y - 110 * s, 6 * s, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Words with a dark outline so you can read them on any background
+    function bigText(text, x, y, size) {
+      ctx.font = "900 " + size + "px 'Comic Sans MS', 'Segoe UI', Arial, sans-serif";
+      ctx.textAlign = "center";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = size / 6;
+      ctx.strokeStyle = "#7a1010";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(text, x, y);
+    }
+
+    function itemBox(it) {   // the box around a sticker (for clicking on it)
+      if (it.kind === "char") {
+        const c = CHARACTERS.find(function (x) { return x.id === it.id; });
+        const w = it.size * c.w / c.h;
+        return { x: it.x - w / 2, y: it.y - it.size / 2, w: w, h: it.size };
+      }
+      return { x: it.x - it.size / 2, y: it.y - it.size / 2, w: it.size, h: it.size };
+    }
+
+    function draw(saving) {
+      drawBackground();
+      const title = document.getElementById("title").value;
+      if (title) bigText(title, W / 2, 95, 64);
+      items.forEach(function (it) {
+        ctx.save();
+        ctx.translate(it.x, it.y);
+        if (it.flip) ctx.scale(-1, 1);
+        if (it.kind === "char") {
+          const c = CHARACTERS.find(function (x) { return x.id === it.id; });
+          const im = pictures[c.img];
+          const w = it.size * c.w / c.h;
+          if (im.complete && im.naturalWidth) ctx.drawImage(im, c.x - c.w / 2, c.y - c.h / 2, c.w, c.h, -w / 2, -it.size / 2, w, it.size);
+        } else {
+          ctx.font = it.size + "px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(it.emoji, 0, it.size * 0.05);
+        }
+        ctx.restore();
+        if (it === selected && !saving) {
+          const b = itemBox(it);
+          ctx.setLineDash([8, 6]); ctx.strokeStyle = "#5ad1ff"; ctx.lineWidth = 3;
+          ctx.strokeRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8);
+          ctx.setLineDash([]);
+        }
+      });
+      const message = document.getElementById("message").value.trim();
+      if (message) {
+        ctx.font = "bold 28px 'Comic Sans MS', 'Segoe UI', Arial, sans-serif";
+        const w = Math.min(W - 60, ctx.measureText(message).width + 40);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+        ctx.beginPath(); ctx.roundRect(W / 2 - w / 2, H - 78, w, 48, 14); ctx.fill();
+        ctx.fillStyle = "#7a1010";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(message, W / 2, H - 44, W - 80);
+      }
+    }
+
+    // ----- BUTTONS -----
+    function addItem(it) {
+      it.x = W / 2 + (Math.random() - 0.5) * 200;
+      it.y = H / 2 + (Math.random() - 0.5) * 120;
+      it.flip = false;
+      items.push(it);
+      selected = it;
+      draw();
+    }
+    STICKERS.forEach(function (s) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "sticker-button";
+      b.textContent = s;
+      b.setAttribute("aria-label", "Add sticker " + s);
+      b.addEventListener("click", function () { addItem({ kind: "emoji", emoji: s, size: 80 }); });
+      document.getElementById("sticker-buttons").appendChild(b);
+    });
+    CHARACTERS.forEach(function (c) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "+ " + c.name;
+      b.addEventListener("click", function () { addItem({ kind: "char", id: c.id, size: c.size }); });
+      document.getElementById("char-buttons").appendChild(b);
+    });
+    document.querySelectorAll("#bg-buttons button[data-bg]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        bg = b.dataset.bg;
+        document.querySelectorAll("#bg-buttons button[data-bg]").forEach(function (x) { x.classList.toggle("on", x === b); });
+        draw();
+      });
+    });
+    document.getElementById("snow-button").addEventListener("click", function () {
+      snowOn = !snowOn;
+      this.classList.toggle("on", snowOn);
+      draw();
+    });
+    document.getElementById("title").addEventListener("change", function () { draw(); });
+    document.getElementById("message").addEventListener("input", function () { draw(); });
+    document.getElementById("bigger").addEventListener("click", function () { if (selected) { selected.size = Math.min(500, selected.size * 1.2); draw(); } });
+    document.getElementById("smaller").addEventListener("click", function () { if (selected) { selected.size = Math.max(25, selected.size / 1.2); draw(); } });
+    document.getElementById("flip").addEventListener("click", function () { if (selected) { selected.flip = !selected.flip; draw(); } });
+    document.getElementById("remove").addEventListener("click", function () {
+      if (!selected) return;
+      items = items.filter(function (x) { return x !== selected; });
+      selected = null;
+      draw();
+    });
+    document.getElementById("clear").addEventListener("click", function () {
+      if (!items.length || confirm("Take everything off your card?")) { items = []; selected = null; draw(); }
+    });
+    function finished() {
+      draw(true);
+      const url = canvas.toDataURL("image/png");
+      draw();
+      return url;
+    }
+    document.getElementById("save").addEventListener("click", function () {
+      const link = document.createElement("a");
+      link.download = "my-hdboc-holiday-card.png";
+      link.href = finished();
+      link.click();
+    });
+    document.getElementById("print").addEventListener("click", function () {
+      selected = null;
+      draw();
+      window.print();
+    });
+
+    // ----- DRAGGING -----
+    function spot(e) {
+      const r = canvas.getBoundingClientRect();
+      return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+    }
+    canvas.addEventListener("pointerdown", function (e) {
+      const p = spot(e);
+      selected = null;
+      for (let i = items.length - 1; i >= 0; i--) {   // the top one first
+        const b = itemBox(items[i]);
+        if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
+          selected = items[i];
+          items.push(items.splice(i, 1)[0]);   // bring it to the front
+          drag = { dx: p.x - selected.x, dy: p.y - selected.y };
+          canvas.setPointerCapture(e.pointerId);
+          break;
+        }
+      }
+      draw();
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!drag || !selected) return;
+      const p = spot(e);
+      selected.x = Math.max(0, Math.min(W, p.x - drag.dx));
+      selected.y = Math.max(0, Math.min(H, p.y - drag.dy));
+      draw();
+    });
+    function stop() { drag = null; }
+    canvas.addEventListener("pointerup", stop);
+    canvas.addEventListener("pointercancel", stop);
+
+    // Start with a little plane on the card
+    items.push({ kind: "emoji", emoji: "✈️", size: 90, x: 620, y: 240, flip: false });
+    items.push({ kind: "emoji", emoji: "🎄", size: 130, x: 170, y: 360, flip: false });
+    draw();
+  </script>
+
+</body>
+</html>

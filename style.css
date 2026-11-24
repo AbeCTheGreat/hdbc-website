@@ -2318,3 +2318,81 @@ tr.sold-out td {
 .daily-reward .button[hidden] {
   display: none;   /* hides the Claim button after you claim */
 }
+
+/* ===== HOLIDAY CARD MAKER ===== */
+#card {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 8px 0 12px;
+  border-radius: 6px;
+  touch-action: none;
+  cursor: grab;
+}
+.maker-buttons select {
+  font: inherit;
+  padding: 8px 12px;
+  border: 2px solid var(--gray);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+.maker-buttons button.sticker-button {
+  font-size: 22px;
+  padding: 4px 10px;
+}
+@media print {
+  .card-body header,
+  .card-body footer,
+  .card-body h2,
+  .card-body .peek-intro,
+  .card-body .maker-row,
+  .card-body .maker-tools,
+  .card-body .hint,
+  .card-body .theme-button,
+  .card-body .new-year-bar {
+    display: none !important;
+  }
+  .card-body .maker {
+    box-shadow: none;
+    padding: 0;
+  }
+}
+
+/* ===== SOUND SETTINGS (in the game) ===== */
+.sound-settings {
+  max-width: 400px;
+  margin: 0 auto 12px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 12px;
+}
+.sound-settings summary {
+  cursor: pointer;
+  font-weight: bold;
+  text-align: center;
+}
+.sound-settings label {
+  display: grid;
+  grid-template-columns: 1fr 2fr 48px;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 14px;
+}
+.sound-settings .sound-button {
+  display: block;
+  margin: 10px auto 2px;
+}
+
+/* ===== PET SHOP (in the game) ===== */
+.pets-title {
+  margin: 18px 0 4px;
+  text-align: center;
+}
+.pets-about {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 14px;
+}
