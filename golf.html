@@ -201,6 +201,7 @@
       const prize = s === 1 ? 10 : diff <= -1 ? 5 : diff === 0 ? 3 : 1;
       addCoins(prize);
       if (s === 1) { try { localStorage.setItem("hdboc-holeinone", "yes"); } catch (e) {} }   // for the badge in the game
+      if (diff <= -1) { try { localStorage.setItem("hdboc-birdie", "yes"); } catch (e) {} }   // for the Long Shot badge
       say(name + "  +" + prize + " 🪙");
       messageT = 130;
       [659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep("triangle", f, f, 0.18, 0.1); }, i * 120); });

@@ -10,8 +10,6 @@
   <link rel="stylesheet" href="style.css">
   <!-- Dark mode (and its button) -->
   <script src="site.js"></script>
-  <!-- The leaderboard's settings and helpers -->
-  <script src="leaderboard.js"></script>
 </head>
 
 <body>
@@ -115,16 +113,6 @@
 
     <!-- The canvas is where the game gets drawn, like a piece of paper we draw on with code -->
     <canvas id="game" width="400" height="600" aria-label="Paper airplane game"></canvas>
-    <!-- SEND YOUR SCORE TO THE LEADERBOARD (shows up after you crash) -->
-    <div class="submit-score" id="submit-score" hidden>
-      <strong>🏆 Put your <span id="submit-points">0</span> points on the <a href="leaderboard.html">leaderboard</a>!</strong>
-      <div class="submit-row">
-        <input type="text" id="nickname" maxlength="12" placeholder="Nickname" aria-label="Your nickname">
-        <button type="button" id="send-score" class="sound-button">Send</button>
-      </div>
-      <p class="hint">Use a nickname, not your real full name.</p>
-      <p class="hint" id="send-status" role="status"></p>
-    </div>
 
     <div class="game-buttons">
       <button type="button" id="sound-button" class="sound-button" aria-pressed="true">🔊 Sound on</button>
@@ -173,7 +161,6 @@
 
     <!-- MORE GAMES -->
     <p class="more-games">
-      <a class="button" href="throw.html">🎯 Throwing Contest</a>
       <a class="button" href="two-player.html">👥 2-Player Mode</a>
       <a class="button" href="snowball.html">❄️ Snowball Fight</a>
       <a class="button" href="bowling.html">🎳 Bowling</a>
@@ -551,7 +538,7 @@
       { id: "storm",     icon: "⛈️", name: "Storm Chaser",   how: "Dodge 3 lightning bolts in one game" },
       { id: "space",     icon: "🚀", name: "Space Cadet",    how: "Find the secret level" },
       { id: "versus",    icon: "👥", name: "Head to Head",   how: "Play a 2-player game" },
-      { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Throw 100 feet in the Throwing Contest" },
+      { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Get a birdie in Paper Airplane Golf" },
       { id: "snowman",   icon: "⛄", name: "Snow Way!",      how: "Survive the giant snowman (winter only)" },
       { id: "rush",      icon: "👾", name: "Boss Rusher",    how: "Beat every boss in Boss Rush" },
       { id: "designer",  icon: "✏️", name: "Plane Designer", how: "Fly a plane you designed" },
@@ -1229,7 +1216,6 @@
       boostCool = 0;
       lastFlap = -99;
       boostsThisGame = 0;
-      if (submitBox) submitBox.hidden = true;
       water = 0;          // 0 = not underwater, 1 = all the way under
       portal = null;      // the secret portal (it shows up after 30 points)
       shark = null;
@@ -2488,47 +2474,9 @@
       }
     }
 
-    // ----- LEADERBOARD: send your score after you crash -----
-    const submitBox = document.getElementById("submit-score");
-    const nicknameBox = document.getElementById("nickname");
-    const sendButton = document.getElementById("send-score");
-    const sendStatus = document.getElementById("send-status");
-    let scoreToSend = 0, planeToSend = "";
-    try { nicknameBox.value = localStorage.getItem("hdboc-nickname") || ""; } catch (e) {}
-    function offerLeaderboard() {
-      // only Normal mode scores go on the leaderboard (so it's fair)
-      if (!leaderboardReady() || mode !== "normal" || score < 1) { submitBox.hidden = true; return; }
-      scoreToSend = score;
-      planeToSend = P().name;
-      document.getElementById("submit-points").textContent = score;
-      sendButton.disabled = false;
-      sendStatus.textContent = "";
-      submitBox.hidden = false;
-    }
-    sendButton.addEventListener("click", function () {
-      const name = cleanNickname(nicknameBox.value);
-      if (!name) { sendStatus.textContent = "Please pick a different nickname (letters and numbers only)."; return; }
-      nicknameBox.value = name;
-      try { localStorage.setItem("hdboc-nickname", name); } catch (e) {}
-      sendButton.disabled = true;
-      sendStatus.textContent = "Sending...";
-      sendScore(name, scoreToSend, planeToSend).then(function () {
-        sendStatus.textContent = "✅ Sent! It shows up on the leaderboard in a few minutes.";
-      }).catch(function () {
-        sendStatus.textContent = "Couldn't send it. Check your internet and try again.";
-        sendButton.disabled = false;
-      });
-    });
-    // Pressing Enter in the nickname box sends it (and doesn't make the plane flap)
-    nicknameBox.addEventListener("keydown", function (e) {
-      e.stopPropagation();
-      if (e.key === "Enter") sendButton.click();
-    });
-
     function crash() {
       state = "over";
       addGameToStats();
-      offerLeaderboard();
       play("crash");
       saveGhost();
       showShop();
@@ -4023,6 +3971,7 @@
       if (localStorage.getItem("hdboc-advent-opened") === "yes") earn("advent");
       if (localStorage.getItem("hdboc-strike") === "yes") earn("strike");
       if (localStorage.getItem("hdboc-holeinone") === "yes") earn("holeinone");
+      if (localStorage.getItem("hdboc-birdie") === "yes") earn("longshot");
       if ((Number(localStorage.getItem("hdboc-snowball-best")) || 0) >= 15) earn("snowpro");
     } catch (e) {}
     document.addEventListener("hdboc-secret", function () { earn("secret"); });   // typed the code right here!
