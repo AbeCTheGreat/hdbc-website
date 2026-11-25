@@ -161,10 +161,7 @@
 
     <!-- MORE GAMES -->
     <p class="more-games">
-      <a class="button" href="two-player.html">👥 2-Player Mode</a>
       <a class="button" href="snowball.html">❄️ Snowball Fight</a>
-      <a class="button" href="bowling.html">🎳 Bowling</a>
-      <a class="button" href="golf.html">⛳ Golf</a>
       <a class="button" href="stats.html">📊 My Stats</a>
     </p>
 
@@ -537,8 +534,7 @@
       { id: "shopper",   icon: "🛒", name: "Big Spender",    how: "Buy something in the Coin Shop" },
       { id: "storm",     icon: "⛈️", name: "Storm Chaser",   how: "Dodge 3 lightning bolts in one game" },
       { id: "space",     icon: "🚀", name: "Space Cadet",    how: "Find the secret level" },
-      { id: "versus",    icon: "👥", name: "Head to Head",   how: "Play a 2-player game" },
-      { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Get a birdie in Paper Airplane Golf" },
+      { id: "longshot",  icon: "🎯", name: "Long Shot",      how: "Score 50 in one game" },
       { id: "snowman",   icon: "⛄", name: "Snow Way!",      how: "Survive the giant snowman (winter only)" },
       { id: "rush",      icon: "👾", name: "Boss Rusher",    how: "Beat every boss in Boss Rush" },
       { id: "designer",  icon: "✏️", name: "Plane Designer", how: "Fly a plane you designed" },
@@ -563,12 +559,13 @@
       { id: "race",      icon: "🏁", name: "Checkered Flag", how: "Finish a race" },
       { id: "champ",     icon: "🥇", name: "Champion",       how: "Win a race" },
       { id: "legend",    icon: "🏆", name: "Race Legend",    how: "Win 5 races" },
-      { id: "strike",    icon: "🎳", name: "Strike!",        how: "Bowl a strike in Paper Airplane Bowling" },
-      { id: "holeinone", icon: "⛳", name: "Hole in One",    how: "Get a hole in one in Paper Airplane Golf" },
       { id: "snowpro",   icon: "❄️", name: "Snow Pro",       how: "Score 15 in the Snowball Fight" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
+    // These badges came from games that were removed (2-Player, Bowling, Golf)
+    ["versus", "strike", "holeinone"].forEach(function (id) { delete earned[id]; });
+    try { localStorage.setItem("hdboc-badges", JSON.stringify(earned)); } catch (e) {}
 
     function earn(id) {
       if (earned[id]) return;   // already have it
@@ -593,6 +590,7 @@
     // Checks all the badge rules (runs every frame while you're flying)
     function checkBadges() {
       if (score >= 1) earn("takeoff");
+      if (score >= 50) earn("longshot");
       if (night > 0) earn("nightowl");
       if (coinsThisGame >= 10) earn("coins");
       if (powerupsThisGame >= 2) earn("powered");
@@ -3969,9 +3967,6 @@
     try {
       if (localStorage.getItem("hdboc-secret") === "found") earn("secret");
       if (localStorage.getItem("hdboc-advent-opened") === "yes") earn("advent");
-      if (localStorage.getItem("hdboc-strike") === "yes") earn("strike");
-      if (localStorage.getItem("hdboc-holeinone") === "yes") earn("holeinone");
-      if (localStorage.getItem("hdboc-birdie") === "yes") earn("longshot");
       if ((Number(localStorage.getItem("hdboc-snowball-best")) || 0) >= 15) earn("snowpro");
     } catch (e) {}
     document.addEventListener("hdboc-secret", function () { earn("secret"); });   // typed the code right here!

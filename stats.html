@@ -52,7 +52,7 @@
 
   <script>
     // How many badges there are in the game (change this when you add more badges)
-    const TOTAL_BADGES = 45;
+    const TOTAL_BADGES = 42;
 
     const PLANES = {
       original: "The Original", looper: "Looper", skyfin: "Sky Fin",
@@ -121,7 +121,7 @@
       ["⚡", stats.powerups || 0, "power-ups grabbed"],
       ["🚀", stats.boosts || 0, "turbo boosts"],
       ["🌀", stats.portals || 0, "secret portals found"],
-      ["🏅", Object.keys(badges).length + " / " + TOTAL_BADGES, "badges"],
+      ["🏅", Object.keys(badges).filter(function (id) { return ["versus", "strike", "holeinone"].indexOf(id) < 0; }).length + " / " + TOTAL_BADGES, "badges"],
       ["📋", missions.done || 0, "missions done"],
       ["📅", Number(load("hdboc-daily-count", 0)) || 0, "daily challenges"],
       ["🔥", (load("hdboc-login", {}).best || 0) + " days", "best daily streak"],
@@ -130,8 +130,6 @@
       ["🏁", (load("hdboc-races", {}).wins || 0) + " / " + (load("hdboc-races", {}).played || 0), "races won"],
       ["🛒", Object.keys(owned).length, "shop items"],
       ["❄️", Number(load("hdboc-snowball-best", 0)) || 0, "Snowball Fight best"],
-      ["🎳", Number(load("hdboc-bowling-best", 0)) || 0, "bowling best"],
-      ["⛳", Number(load("hdboc-golf-best", 0)) || "-", "golf best (fewest throws)"],
       ["❤️", favorite, "favorite plane"]
     ]);
     tiles("boss-stats", BOSSES.map(function (b) {
