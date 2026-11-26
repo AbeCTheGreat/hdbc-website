@@ -52,7 +52,7 @@
 
   <script>
     // How many badges there are in the game (change this when you add more badges)
-    const TOTAL_BADGES = 42;
+    const TOTAL_BADGES = 45;
 
     const PLANES = {
       original: "The Original", looper: "Looper", skyfin: "Sky Fin",
@@ -65,7 +65,9 @@
       ["bandit", "🦝", "Bandit"],
       ["antis", "🦗", "PrayingAntis"],
       ["shark", "🦈", "Shark"],
-      ["volcano", "🌋", "Volcano Eruption"]
+      ["volcano", "🌋", "Volcano Eruption"],
+      ["blackout", "💡", "Dr. Blackout"],
+      ["vonbolt", "⚡", "Baron Von Bolt"]
     ];
 
     // ----- You don't need to change anything below this line -----
@@ -93,7 +95,7 @@
     const secs = stats.seconds || 0;
     const time = secs >= 3600 ? Math.floor(secs / 3600) + "h " + Math.floor(secs / 60) % 60 + "m"
                : secs >= 60 ? Math.floor(secs / 60) + " min" : secs + " sec";
-    const storyDone = Math.max(0, Math.min(5, (Number(load("hdboc-story", 1)) || 1) - 1));
+    const storyDone = Math.max(0, Math.min(10, (Number(load("hdboc-story", 1)) || 1) - 1));
 
     function tiles(boxId, list) {
       const box = document.getElementById(boxId);
@@ -125,7 +127,7 @@
       ["📋", missions.done || 0, "missions done"],
       ["📅", Number(load("hdboc-daily-count", 0)) || 0, "daily challenges"],
       ["🔥", (load("hdboc-login", {}).best || 0) + " days", "best daily streak"],
-      ["📖", storyDone + " / 5", "story levels"],
+      ["📖", storyDone + " / 10", "story levels"],
       ["👾", Number(load("hdboc-rush-best", 0)) || 0, "Boss Rush best"],
       ["🏁", (load("hdboc-races", {}).wins || 0) + " / " + (load("hdboc-races", {}).played || 0), "races won"],
       ["🛒", Object.keys(owned).length, "shop items"],

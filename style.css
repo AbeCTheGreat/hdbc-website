@@ -866,7 +866,7 @@ a.card:hover {
 }
 .badge-shelf {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 42 badges = 14 neat rows of 3 */
+  grid-template-columns: repeat(3, minmax(0, 1fr));   /* 45 badges = 15 neat rows of 3 */
   gap: 10px;
 }
 .badge {

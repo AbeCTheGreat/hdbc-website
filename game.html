@@ -297,6 +297,8 @@
     let boss, barks, bossDone;   // the Biscuit boss fight
     let cops, donuts, copsDone;  // the Not Smart Cops boss fight (at 100 points)
     let antis, fireballs, antisDone;   // the PrayingAntis boss fight (at 150 points)
+    let villain, zaps, blackoutDone, vonboltDone;   // Dr. Blackout (200 points) and Baron Von Bolt (250 points)
+    let pooTimer = 0, poos = [], pooSpawn = 0;      // the 💩 Poo Blaster power-up
     let weather, weatherTimer, windDir, rainDrops, bolt, boltsDodged, flash;   // the weather
     let ghostRun, ghostData, ghostPassed;   // the ghost plane
     let space = 0;   // the secret level: 0 = not yet, 1 = all the way in OUTER SPACE
@@ -538,7 +540,7 @@
       { id: "snowman",   icon: "⛄", name: "Snow Way!",      how: "Survive the giant snowman (winter only)" },
       { id: "rush",      icon: "👾", name: "Boss Rusher",    how: "Beat every boss in Boss Rush" },
       { id: "designer",  icon: "✏️", name: "Plane Designer", how: "Fly a plane you designed" },
-      { id: "story",     icon: "📖", name: "Story Hero",     how: "Finish all 5 story levels" },
+      { id: "story",     icon: "📖", name: "Story Hero",     how: "Finish Chapter 1 of Story Mode" },
       { id: "buddy",     icon: "🐶", name: "Best Friends",   how: "Get a flying buddy" },
       { id: "dj",        icon: "🎶", name: "DJ",             how: "Pick a song in the jukebox" },
       { id: "turbo",     icon: "⚡", name: "Turbo Charged",  how: "Use 3 turbo boosts in one game" },
@@ -559,7 +561,10 @@
       { id: "race",      icon: "🏁", name: "Checkered Flag", how: "Finish a race" },
       { id: "champ",     icon: "🥇", name: "Champion",       how: "Win a race" },
       { id: "legend",    icon: "🏆", name: "Race Legend",    how: "Win 5 races" },
-      { id: "snowpro",   icon: "❄️", name: "Snow Pro",       how: "Score 15 in the Snowball Fight" }
+      { id: "snowpro",   icon: "❄️", name: "Snow Pro",       how: "Score 15 in the Snowball Fight" },
+      { id: "chapter2",  icon: "📗", name: "Chapter 2 Hero", how: "Finish Chapter 2 of Story Mode" },
+      { id: "poo",       icon: "💩", name: "Poo Power",      how: "Hit a boss with the Poo Blaster" },
+      { id: "lightson",  icon: "💡", name: "Lights On!",     how: "Beat Dr. Blackout" }
     ];
     let earned = {};
     try { earned = JSON.parse(localStorage.getItem("hdboc-badges")) || {}; } catch (e) { earned = {}; }
@@ -1199,6 +1204,13 @@
       antis = null;      // PrayingAntis isn't here yet
       fireballs = [];
       antisDone = false;
+      villain = null;    // Dr. Blackout and Baron Von Bolt aren't here yet
+      zaps = [];         // their zaps and lasers
+      blackoutDone = false;
+      vonboltDone = false;
+      pooTimer = 0;      // the Poo Blaster is off
+      poos = [];
+      pooSpawn = 0;
       weather = "clear"; // the weather starts nice and sunny
       weatherTimer = 300;
       windDir = 0;
@@ -1542,7 +1554,7 @@
         if (dragonFire) { dragonFire.t--; if (dragonFire.t <= 0) dragonFire = null; }
         if (dragonTimer <= 0) {
           let target = null, best = 99999;
-          [barks, donuts, fireballs, snowballs, rocks].forEach(function (list) {
+          [barks, donuts, fireballs, snowballs, rocks, zaps].forEach(function (list) {
             (list || []).forEach(function (d) {
               if (d.warn > 0 || d.x < plane.x - 10 || d.x > plane.x + 320) return;
               const dist = Math.abs(d.x - plane.x) + Math.abs(d.y - plane.y);
@@ -1566,7 +1578,7 @@
 
       // The spawn clock ticks slower during slow-mo, so stacks stay evenly spaced
       const storyBossTime = mode === "story" && storyPhase !== "goal";
-      if (!boss && !cops && !antis && !snowman && !shark && !erupt && !bandit && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
+      if (!boss && !cops && !antis && !snowman && !villain && !shark && !erupt && !bandit && mode !== "rush" && !storyBossTime) spawnClock += slow;   // nothing new spawns during a boss fight (or in Boss Rush)
       if (spawnClock >= SPAWN_EVERY) {
         spawnClock -= SPAWN_EVERY;
         addStack();
@@ -1648,19 +1660,53 @@
           powerupsThisGame++;
           if (u.type === "magnet") magnetTimer = powerTime();
           else if (u.type === "snowball") shield = true;   // lasts until you hit something
+          else if (u.type === "poo") pooTimer = 360;   // 6 seconds of poo!
           else slowTimer = powerTime();
-          pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : u.type === "snowball" ? "SHIELD!" : "SLOW-MO!" });
+          pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : u.type === "snowball" ? "SHIELD!" : u.type === "poo" ? "POO BLASTER!" : "SLOW-MO!" });
         }
       });
       powerups = powerups.filter(function (u) { return !u.got && u.x > -30; });
 
+      // ----- THE POO BLASTER (like Pooant's!) -----
+      // During a boss fight, a 💩 power-up floats in every 5 seconds.
+      // Grab it and your plane shoots poo for 6 seconds. Each SPLAT takes 2 shots away from the boss!
+      const bossFight = boss || cops || antis || snowman || villain;
+      if (bossFight && pooTimer <= 0 && !powerups.some(function (u) { return u.type === "poo"; })) {
+        pooSpawn += slow;
+        if (pooSpawn >= 300) {
+          pooSpawn = 0;
+          powerups.push({ x: W, y: 120 + Math.random() * (GROUND - 240), type: "poo" });
+        }
+      }
+      if (pooTimer > 0) {
+        pooTimer--;
+        if (pooTimer % 22 === 0) poos.push({ x: plane.x + 22, y: plane.y });
+      }
+      poos.forEach(function (p) {
+        p.x += 7 * slow;
+        [[boss, "barksLeft"], [cops, "donutsLeft"], [antis, "shotsLeft"], [snowman, "ballsLeft"], [villain, "left"]].forEach(function (t) {
+          const b = t[0];
+          if (!b || b.leaving || p.hit) return;
+          if (Math.abs(p.x - b.x) < 60 && Math.abs(p.y - b.y) < 100) {
+            p.hit = true;
+            b[t[1]] = Math.max(0, b[t[1]] - 2);
+            score += 1;
+            checkUnlock();
+            play("splat");
+            pops.push({ x: p.x, y: p.y - 20, t: 45, text: "SPLAT! 💩" });
+            earn("poo");
+          }
+        });
+      });
+      poos = poos.filter(function (p) { return !p.hit && p.x < W + 30; });
+
       // ----- THE BOSS: Biscuit the toxic dog -----
       // At 50 points, Biscuit shows up and barks at you. Dodge 10 barks to win!
       // ----- BOSS RUSH: the next boss comes as soon as the last one leaves -----
-      if (mode === "rush" && !boss && !cops && !antis && !snowman) {
+      if (mode === "rush" && !boss && !cops && !antis && !snowman && !villain) {
         rushWait--;
         if (rushWait <= 0) {
-          const list = WINTER ? ["biscuit", "snowman", "cops", "antis"] : ["biscuit", "cops", "antis"];
+          const list = WINTER ? ["biscuit", "snowman", "cops", "antis", "blackout", "vonbolt"] : ["biscuit", "cops", "antis", "blackout", "vonbolt"];
           if (rushStep >= list.length) {
             // You beat every boss! Round 2, 3, 4... gets faster each time
             rushStep = 0;
@@ -1674,7 +1720,8 @@
           if (next === "biscuit") startBiscuit();
           else if (next === "snowman") startSnowman();
           else if (next === "cops") startCops();
-          else startAntis();
+          else if (next === "antis") startAntis();
+          else startVillain(next);
         }
       }
 
@@ -1689,7 +1736,7 @@
           toasts.push({ text: "✅ Goal done!", t: 120 });
           toasts.push({ text: lv.bossLine, t: 170 });
         }
-        if (storyPhase === "boss" && !boss && !cops && !antis && !snowman) {
+        if (storyPhase === "boss" && !boss && !cops && !antis && !snowman && !villain) {
           storyWait--;
           if (storyWait <= 0) {
             if (storyQueue.length) {
@@ -1698,7 +1745,8 @@
               if (next === "biscuit") startBiscuit();
               else if (next === "snowman") startSnowman();
               else if (next === "cops") startCops();
-              else startAntis();
+              else if (next === "antis") startAntis();
+              else startVillain(next);
             } else {
               finishStoryLevel();
               return;
@@ -1707,7 +1755,7 @@
         }
       }
 
-      if (!boss && !bossDone && !shark && !erupt && !bandit && score >= 50) startBiscuit();
+      if (!boss && !bossDone && !villain && !shark && !erupt && !bandit && score >= 50) startBiscuit();
       if (boss) {
         // Slide in from the right, then bob up and down
         const homeX = 320;
@@ -1749,7 +1797,7 @@
       // ----- BOSS 2: the Not Smart Cops (Barry and Lou) -----
       // At 100 points they drive up in a flying police car and throw donuts.
       // Dodge 12 donuts to win!
-      if (!cops && !copsDone && !boss && !snowman && !shark && !erupt && !bandit && score >= 100) startCops();
+      if (!cops && !copsDone && !boss && !snowman && !villain && !shark && !erupt && !bandit && score >= 100) startCops();
       if (cops) {
         const copsHome = 300;
         if (cops.leaving) cops.x += 3.5;
@@ -1797,7 +1845,7 @@
       // ----- BOSS 3: PRAYINGANTIS -----
       // At 150 points, the hero shows up. He thinks your plane is a bug,
       // so he shoots fire at it! Dodge 12 fire shots to win.
-      if (!antis && !antisDone && !boss && !cops && !snowman && !shark && !erupt && !bandit && score >= 150) startAntis();
+      if (!antis && !antisDone && !boss && !cops && !snowman && !villain && !shark && !erupt && !bandit && score >= 150) startAntis();
       if (antis) {
         const antisHome = 310;
         if (antis.leaving) { antis.x += 2.5; antis.y -= 3; }   // he flies up and away
@@ -1842,9 +1890,64 @@
       });
       fireballs = fireballs.filter(function (f) { return f.x > -40 && f.y > -40 && f.y < GROUND + 40; });
 
+      // ----- BOSSES 4 AND 5: DR. BLACKOUT AND BARON VON BOLT (from our newest comics!) -----
+      // Dr. Blackout turns the lights out and throws lightning zaps. Dodge 10!
+      // Baron Von Bolt flies around on his jetpack and fires lasers. Dodge 12!
+      const noBoss = !boss && !cops && !antis && !snowman && !villain && !shark && !erupt && !bandit;
+      if (mode === "normal" && noBoss && !blackoutDone && score >= 200) startVillain("blackout");
+      if (mode === "normal" && noBoss && blackoutDone && !vonboltDone && score >= 250) startVillain("vonbolt");
+      if (villain) {
+        const v = villain, home = 315, jet = v.kind === "vonbolt";
+        if (v.leaving) { v.x += 3; if (jet) v.y -= 3; }
+        else {
+          if (v.x > home) v.x -= 2;
+          v.y = H / 2 - 20 + Math.sin(frame / (jet ? 28 : 45)) * (jet ? 150 : 90);
+        }
+        if (!v.leaving && v.x <= home + 2) {
+          v.timer -= slow;
+          if (v.timer <= 0 && v.left > 0) {
+            v.left--;
+            v.shots++;
+            v.timer = (jet ? 44 : 58) / hard();
+            const sx = v.x - (jet ? 52 : 30), sy = v.y - (jet ? 11 : 40);
+            const vx = (jet ? -6.5 : -4.2) * hard();
+            const vy = Math.max(-3, Math.min(3, (plane.y - sy) / ((sx - plane.x) / -vx)));
+            zaps.push({ x: sx, y: sy, vx: vx, vy: vy, kind: v.kind });
+            // ZAP! ZAP! ZAP! Every few shots is a 3-way blast
+            if (v.shots % (jet ? 4 : 3) === 0) {
+              zaps.push({ x: sx, y: sy, vx: vx, vy: vy - 1.5, kind: v.kind });
+              zaps.push({ x: sx, y: sy, vx: vx, vy: vy + 1.5, kind: v.kind });
+            }
+            play("fire");
+          }
+        }
+        if (!v.leaving && v.left === 0 && zaps.length === 0) {
+          v.leaving = true;
+          score += 15;
+          if (jet) {
+            vonboltDone = true;
+            beat("vonbolt");
+            toasts.push({ text: "⚡ \"My JETPACK! It's on FIRE!\" +15", t: 150 });
+          } else {
+            blackoutDone = true;
+            beat("blackout");
+            earn("lightson");
+            toasts.push({ text: "💡 The lights are back ON! +15", t: 150 });
+          }
+          checkUnlock();
+        }
+        if (v.leaving && (v.x > W + 150 || v.y < -200)) villain = null;
+      }
+      zaps.forEach(function (z) {
+        z.x += z.vx * slow;
+        z.y += z.vy * slow;
+        if (!z.passed && z.x < plane.x - 30) { z.passed = true; score += 1; checkUnlock(); }
+      });
+      zaps = zaps.filter(function (z) { return z.x > -40 && z.y > -40 && z.y < GROUND + 40; });
+
       // ----- WINTER BOSS: THE GIANT SNOWMAN -----
       // At 75 points (only in winter), a giant snowman throws snowballs. Dodge 10!
-      if (!snowman && !snowDone && !boss && !cops && !antis && !shark && !erupt && !bandit && score >= 75) startSnowman();
+      if (!snowman && !snowDone && !boss && !cops && !antis && !villain && !shark && !erupt && !bandit && score >= 75) startSnowman();
       if (snowman) {
         const snowHome = 310;
         if (snowman.leaving) snowman.x += 3;
@@ -1894,7 +1997,7 @@
       // At 125 points (only in winter), Bandit the raccoon swoops at you to STEAL your coins!
       // He can't make you crash. Grab the ❄️ snowballs floating by and you'll throw them at him.
       // Hit him 5 times and he drops his sack: you get your coins back, plus a bonus!
-      if (mode === "normal" && !bandit && !banditDone && !boss && !cops && !antis && !snowman && !shark && !erupt && score >= 125) startBandit();
+      if (mode === "normal" && !bandit && !banditDone && !boss && !cops && !antis && !snowman && !villain && !shark && !erupt && score >= 125) startBandit();
       if (bandit) {
         const home = 300;   // where he hovers
         if (bandit.leaving) {
@@ -2038,7 +2141,7 @@
 
       // ----- THE SHARK (15 points after you go underwater) -----
       // A warning shows where it will charge from. Then it zooms across! Dodge 3 charges.
-      if (water >= 1 && !shark && !sharkDone && !boss && !cops && !antis && !snowman && !bandit && score >= waterScore + 15) {
+      if (water >= 1 && !shark && !sharkDone && !boss && !cops && !antis && !snowman && !villain && !bandit && score >= waterScore + 15) {
         shark = { charges: 3, phase: "warn", t: 90, x: W + 100, y: plane.y };
         play("boss");
         toasts.push({ text: "🦈 SHARK! Watch for the warning!", t: 150 });
@@ -2074,7 +2177,7 @@
 
       // ----- THE ERUPTION (15 points after you go into the volcano) -----
       // Lava rocks fly at you from the right. A warning shows where each one is coming. Dodge 12!
-      if (lava >= 1 && !erupt && !eruptDone && !boss && !cops && !antis && !snowman && !bandit && score >= lavaScore + 15) {
+      if (lava >= 1 && !erupt && !eruptDone && !boss && !cops && !antis && !snowman && !villain && !bandit && score >= lavaScore + 15) {
         erupt = { left: 12, t: 90 };
         play("thunder");
         toasts.push({ text: "🌋 ERUPTION! Dodge the lava rocks!", t: 150 });
@@ -2144,6 +2247,10 @@
         const dx = f.x - plane.x, dy = f.y - plane.y;
         if (dx * dx + dy * dy < (12 + 10 * P().size) * (12 + 10 * P().size)) hit = true;
       }
+      for (const z of zaps) {
+        const dx = z.x - plane.x, dy = z.y - plane.y;
+        if (dx * dx + dy * dy < (11 + 10 * P().size) * (11 + 10 * P().size)) hit = true;
+      }
       for (const b of snowballs) {
         const dx = b.x - plane.x, dy = b.y - plane.y;
         if (dx * dx + dy * dy < (b.r + 10 * P().size) * (b.r + 10 * P().size)) hit = true;
@@ -2207,6 +2314,19 @@
       play("fire");
       toasts.push({ text: "🦗 PRAYINGANTIS THINKS YOU'RE A BUG!", t: 150 });
     }
+    function startVillain(kind) {
+      pic("new-characters.png");   // load their picture
+      villain = { kind: kind, x: W + 120, y: H / 2, left: kind === "vonbolt" ? 12 : 10, timer: 100, leaving: false, shots: 0 };
+      weather = "clear";
+      bolt = null;
+      if (kind === "vonbolt") {
+        play("fire");
+        toasts.push({ text: "⚡ BARON VON BOLT! Dodge the lasers!", t: 150 });
+      } else {
+        play("boss");
+        toasts.push({ text: "💡 DR. BLACKOUT turned the lights OUT!", t: 150 });
+      }
+    }
     function startBandit() {
       bandit = { x: W + 100, y: H / 2 - 40, phase: "hover", t: 120, swoopsLeft: 6, hits: 0, stolen: 0,
                  grabbed: false, ammoClock: 40, leaving: false, ouch: 0 };
@@ -2228,7 +2348,13 @@
       antis:   { name: "PrayingAntis", img: "praying-antis.png",    x: 290, y: 640,  w: 520, h: 820 },
       biscuit: { name: "Biscuit",      img: "peek-antis.png",       x: 415, y: 425,  w: 100, h: 80 },
       gus:     { name: "Gus",          img: "not-smart-sports.png", x: 355, y: 890,  w: 240, h: 590 },
-      ray:     { name: "Ray",          img: "not-smart-sports.png", x: 730, y: 1060, w: 230, h: 440 }
+      ray:     { name: "Ray",          img: "not-smart-sports.png", x: 730, y: 1060, w: 230, h: 440 },
+      // From The Heroes with Twisted Legs and PrayingAntis 2
+      max:      { name: "Max",            img: "new-characters.png", x: 90,  y: 10,  w: 186, h: 420 },
+      toby:     { name: "Toby",           img: "new-characters.png", x: 460, y: 40,  w: 180, h: 400 },
+      blackout: { name: "Dr. Blackout",   img: "new-characters.png", x: 795, y: 20,  w: 240, h: 410 },
+      pooant:   { name: "Pooant",         img: "new-characters.png", x: 20,  y: 485, w: 320, h: 400 },
+      vonbolt:  { name: "Baron Von Bolt", img: "new-characters.png", x: 410, y: 455, w: 280, h: 430 }
     };
     // The 5 levels. Each has: a comic scene, a goal, boss(es), and an ending scene.
     const STORY = [
@@ -2268,7 +2394,50 @@
         goal: { text: "Score 20 points", need: 20, have: function () { return score; } },
         bosses: ["biscuit", "cops", "antis"], bossLine: "👾 FINAL BATTLE! Here they come!",
         outro: [["gus", "YOU DID IT! HDBOC wins the World Series!"],
-                ["ray", "THE END... for now. 🏆"]] }
+                ["ray", "THE END... for now. 🏆"]] },
+
+      // ===== CHAPTER 2 (from The Heroes with Twisted Legs and PrayingAntis 2) =====
+      { title: "Level 6: Lights Out!", night: true,
+        intro: [["toby", "Not AGAIN, Max! You tripped AGAIN!"],
+                ["max", "Sorry! Hey... why did ALL the lights just go out?"],
+                ["blackout", "With my BLACKOUT-O-MATIC, I'll shut off the WHOLE WORLD'S power! MWAHAHA!"]],
+        goal: { text: "Fly past 10 stacks", need: 10, have: function () { return storyStacks; } },
+        bosses: ["blackout"], bossLine: "Dr. Blackout: Lights OUT, little plane!",
+        outro: [["blackout", "My machine! It's BROKEN!"],
+                ["toby", "The lights are back on all over the WORLD!"],
+                ["max", "Um... can somebody untangle us?"]] },
+      { title: "Level 7: Untangle Us!",
+        intro: [["max", "Our legs are twisted into one giant KNOT!"],
+                ["toby", "The doctor costs 10 coins. Grab them for us, paper plane!"]],
+        goal: { text: "Grab 10 coins", need: 10, have: function () { return coinsThisGame; } },
+        bosses: ["cops"], bossLine: "Barry: Untangle you? We can't even catch a mosquito!",
+        outro: [["toby", "The doctor says we'll be tangled... FOREVER."],
+                ["max", "Eh, it's not SO bad. Race you home! Oh wait..."]] },
+      { title: "Level 8: Evil PrayingAntis!",
+        intro: [["antis", "MWAHAHA! I'm EVIL now!"],
+                ["pooant", "Stop right there, PrayingAntis! I'm POOANT!"],
+                ["pooant", "Paper plane! When he shows up, grab the 💩 POO BLASTER and SPLAT him!"]],
+        goal: { text: "Score 15 points", need: 15, have: function () { return score; } },
+        bosses: ["antis"], bossLine: "PrayingAntis: Is that ALL you got?",
+        outro: [["antis", "Huh? Where am I? Why do I smell like POO?"],
+                ["pooant", "Long story."]] },
+      { title: "Level 9: Who Sent the Robot?", morePowerups: true,
+        intro: [["antis", "Hmm... this robot says BUILT BY B.V.B.?"],
+                ["vonbolt", "It was ME! BARON VON BOLT! MWAHAHA!"],
+                ["pooant", "Grab 2 power-ups to get ready. He shoots LASERS!"]],
+        goal: { text: "Grab 2 power-ups", need: 2, have: function () { return powerupsThisGame; } },
+        bosses: ["vonbolt"], bossLine: "Baron Von Bolt: ZAP! ZAP! ZAP!",
+        outro: [["vonbolt", "My JETPACK! It's on FIRE!"],
+                ["antis", "Let's get him TOGETHER!"]] },
+      { title: "Level 10: The Big Fight", night: true,
+        intro: [["pooant", "This is it. The BIG FIGHT!"],
+                ["blackout", "I broke out of jail to help my friend!"],
+                ["vonbolt", "Not so fast! LASER... to MAXIMUM!"],
+                ["max", "Score 20 points, then beat them BOTH. You got this!"]],
+        goal: { text: "Score 20 points", need: 20, have: function () { return score; } },
+        bosses: ["blackout", "vonbolt"], bossLine: "👾 FINAL BATTLE! Dr. Blackout AND Baron Von Bolt!",
+        outro: [["vonbolt", "Grrr... I'll be back in PRAYINGANTIS 3!"],
+                ["pooant", "YOU DID IT! THE END... for now! 💩🏆"]] }
     ];
     let storyUnlocked = 1;   // how many levels you can play (6 = you beat them all)
     try { storyUnlocked = Math.max(1, Number(localStorage.getItem("hdboc-story")) || 1); } catch (e) {}
@@ -2310,7 +2479,8 @@
         title = "LEVEL COMPLETE! +10 🪙";
         showShop();
       }
-      if (storyLevel === STORY.length - 1) earn("story");
+      if (storyLevel === 4) earn("story");      // end of Chapter 1
+      if (storyLevel === 9) earn("chapter2");   // end of Chapter 2
       play("unlock");
       showScene(STORY[storyLevel].outro, title, "outro");
       showStoryLevels();
@@ -3078,6 +3248,13 @@
           ctx.font = "13px 'Segoe UI', Arial, sans-serif";
           ctx.textAlign = "center";
           ctx.fillText("❄", x, y + 5);
+        } else if (u.type === "poo") {
+          // the Poo Blaster
+          ctx.font = "22px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("💩", x, y + 1);
+          ctx.textBaseline = "alphabetic";
         } else {
           // a clock
           ctx.beginPath();
@@ -3338,6 +3515,71 @@
       }
       ctx.restore();
       if (!antis.leaving) comicText("Fire shots left: " + antis.shotsLeft, x - 10, y + 135, 18, "#ffa94d");
+    }
+
+    // Dr. Blackout or Baron Von Bolt (their picture is on new-characters.png)
+    function drawVillain() {
+      if (!villain) return;
+      const v = villain;
+      if (v.kind === "blackout" && !v.leaving) {
+        // LIGHTS OUT! Everything goes dark, except a little circle around your plane
+        ctx.fillStyle = "rgba(5, 8, 25, 0.82)";
+        ctx.beginPath();
+        ctx.rect(0, 0, W, H);
+        ctx.arc(plane.x, plane.y, 110, 0, Math.PI * 2, true);
+        ctx.fill("evenodd");
+        drawPowerups();   // power-ups glow in the dark, so you can still find the Poo Blaster
+      }
+      const c = CAST[v.kind];
+      const img = pic(c.img);
+      const h = v.kind === "vonbolt" ? 160 : 170, w = h * c.w / c.h;
+      if (img.complete && img.naturalWidth) ctx.drawImage(img, c.x, c.y, c.w, c.h, v.x - w / 2, v.y - h / 2, w, h);
+      if (!v.leaving) {
+        comicText((v.kind === "blackout" ? "Zaps left: " : "Lasers left: ") + v.left, v.x - 10, v.y + h / 2 + 22, 18,
+                  v.kind === "blackout" ? "#f2c230" : "#ff6b5e");
+      }
+    }
+    // Dr. Blackout's yellow lightning zaps and Baron Von Bolt's red lasers
+    function drawZaps() {
+      zaps.forEach(function (z) {
+        ctx.save();
+        if (z.kind === "vonbolt") {
+          ctx.lineCap = "round";
+          ctx.strokeStyle = "rgba(255, 70, 50, 0.5)";
+          ctx.lineWidth = 12;
+          ctx.beginPath(); ctx.moveTo(z.x, z.y); ctx.lineTo(z.x - z.vx * 5, z.y - z.vy * 5); ctx.stroke();
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.moveTo(z.x, z.y); ctx.lineTo(z.x - z.vx * 5, z.y - z.vy * 5); ctx.stroke();
+        } else {
+          ctx.translate(z.x, z.y);
+          ctx.fillStyle = "rgba(246, 214, 74, 0.35)";
+          ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#f6d64a";
+          ctx.strokeStyle = "#111";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(4, -14); ctx.lineTo(-8, 1); ctx.lineTo(0, 1); ctx.lineTo(-5, 14);
+          ctx.lineTo(9, -3); ctx.lineTo(1, -3); ctx.lineTo(6, -14);
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+        }
+        ctx.restore();
+      });
+    }
+    // Flying poo from the Poo Blaster
+    function drawPoos() {
+      poos.forEach(function (p) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(Math.sin((frame + p.x) / 6) * 0.3);
+        ctx.fillStyle = "#7a4a22";
+        ctx.strokeStyle = "#111";
+        ctx.lineWidth = 2;
+        [[6, 11, 5], [0, 8, 4.5], [-6, 5, 3.5]].forEach(function (e) {
+          ctx.beginPath(); ctx.ellipse(0, e[0], e[1], e[2], 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        });
+        ctx.restore();
+      });
     }
 
     // A fireball with a flickery tail
@@ -3774,7 +4016,7 @@
       drawBackground();
       drawStacks();
       const live = state === "playing" || state === "paused";
-      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawSnowman(); drawSnowballs(); drawBandit(); drawAmmo(); drawPortal(); drawShark(); drawRocks(); drawGhost(); }
+      if (live) { drawCoins(); drawPowerups(); drawBoss(); drawBarks(); drawCops(); drawDonuts(); drawAntis(); drawFireballs(); drawVillain(); drawZaps(); drawPoos(); drawSnowman(); drawSnowballs(); drawBandit(); drawAmmo(); drawPortal(); drawShark(); drawRocks(); drawGhost(); }
       if (state !== "start") drawPlane();
       if (live) drawShield();
       if (live) drawBuddy(buddyPos.x, buddyPos.y, 1);
@@ -3789,6 +4031,7 @@
         if (magnetTimer > 0) active.push("🧲 " + Math.ceil(magnetTimer / 60));
         if (slowTimer > 0) active.push("⏱️ " + Math.ceil(slowTimer / 60));
         if (shield) active.push("⛄ Shield");
+        if (pooTimer > 0) active.push("💩 " + Math.ceil(pooTimer / 60));
         if (P().turbo) active.push(boostTimer > 0 ? "🚀 TURBO x2!" : boostCool > 0 ? "🚀 " + Math.ceil(boostCool / 60) : "🚀 Ready! Tap twice");
         if (mode === "rush") comicText("👾 ROUND " + rushRound, W / 2, 105, 20, "#ff9ecf");
         if (mode === "race" && raceSpin > 0) comicText("💫 SPIN OUT!", W / 2, 180, 22, "#ff9ecf");
