@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Cards - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+  <!-- The list of cards and how to win them -->
+  <script src="cards.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- MY TRADING CARDS -->
+  <section>
+    <a class="back" href="game.html">&larr; Back to the game</a>
+    <h2>🃏 My Trading Cards</h2>
+    <p class="peek-intro">Win a card for every HDBOC character by playing the <a href="game.html">Paper Airplane Game</a>.
+       Your cards are saved in this browser, so they're only on this computer or phone.</p>
+    <p class="card-count" id="card-count"></p>
+
+    <!-- The script below fills this in with all the cards -->
+    <div class="tcards" id="tcards"></div>
+  </section>
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <!-- JAVASCRIPT: show the cards -->
+  <script>
+    const owned = ownedCards();
+    const box = document.getElementById("tcards");
+
+    CARDS.forEach(function (c, i) {
+      const card = document.createElement("div");
+      const have = owned.indexOf(c.id) >= 0;
+      card.className = "tcard" + (have ? "" : " locked") + (have && c.boss ? " shiny" : "");
+      card.style.setProperty("--card", c.color);
+
+      // Top line: the card number, and HERO or BOSS
+      const top = document.createElement("div");
+      top.className = "tcard-top";
+      const num = document.createElement("span");
+      num.textContent = "#" + (i + 1);
+      const tag = document.createElement("span");
+      tag.className = "tcard-tag";
+      tag.textContent = c.boss ? "BOSS" : "HERO";
+      top.append(num, tag);
+      card.appendChild(top);
+
+      if (!have) {
+        // A card you don't have yet: a mystery!
+        const q = document.createElement("div");
+        q.className = "tcard-mystery";
+        q.textContent = "?";
+        const name = document.createElement("h3");
+        name.textContent = "???";
+        const how = document.createElement("p");
+        how.className = "tcard-how";
+        how.textContent = "🔒 " + c.how;
+        card.append(q, name, how);
+        box.appendChild(card);
+        return;
+      }
+
+      // The character's picture
+      const pic = document.createElement("div");
+      pic.className = "char-pic";
+      pic.setAttribute("role", "img");
+      pic.setAttribute("aria-label", c.name);
+      pic.setAttribute("style", c.pic + " --size: 150px;");
+      const name = document.createElement("h3");
+      name.textContent = c.name;
+      const comic = document.createElement("p");
+      comic.className = "tcard-comic";
+      comic.textContent = "From " + c.comic;
+
+      // Three silly stats, each with a bar from 0 to 10
+      const list = document.createElement("ul");
+      list.className = "tcard-stats";
+      c.stats.forEach(function (s) {
+        const li = document.createElement("li");
+        const label = document.createElement("span");
+        label.textContent = s[0];
+        const bar = document.createElement("span");
+        bar.className = "tcard-bar";
+        const fill = document.createElement("i");
+        fill.style.width = (s[1] * 10) + "%";
+        bar.appendChild(fill);
+        const n = document.createElement("b");
+        n.textContent = s[1];
+        li.append(label, bar, n);
+        list.appendChild(li);
+      });
+      card.append(pic, name, comic, list);
+      box.appendChild(card);
+    });
+
+    const count = document.getElementById("card-count");
+    count.textContent = "You have " + owned.length + " / " + CARDS.length + " cards" +
+      (owned.length === CARDS.length ? " 🏆 You collected them ALL!" : "");
+  </script>
+</body>
+</html>

@@ -33,7 +33,7 @@
   <section>
     <a class="back" href="characters.html">&larr; Back to the characters</a>
     <h2>Which HDBOC Character Are You?</h2>
-    <p class="peek-intro">Answer 6 questions to find out!</p>
+    <p class="peek-intro">Answer 9 questions to find out!</p>
 
     <!-- The script below puts the questions (and your answer) in here -->
     <div class="quiz" id="quiz" aria-live="polite"></div>
@@ -85,6 +85,42 @@
         pic: "--img: url(not-smart-sports.png); --x: 730; --y: 1060; --w: 230; --h: 440;",
         alt: "Ray, a baseball player holding a tray of bagels",
         text: "You're the best friend anyone could have. You're loyal, kind, and you always bring snacks to share."
+      },
+      max: {
+        name: "Max", comic: "The Heroes with Twisted Legs", peek: "heroes",
+        pic: "--img: url(new-characters.png); --x: 90; --y: 10; --w: 186; --h: 420;",
+        alt: "Max, a boy with spiky brown hair and a green hoodie",
+        text: "You're a little clumsy, but you're SO much fun. Things go wrong around you... and somehow they always turn out great!"
+      },
+      toby: {
+        name: "Toby", comic: "The Heroes with Twisted Legs", peek: "heroes",
+        pic: "--img: url(new-characters.png); --x: 460; --y: 40; --w: 180; --h: 400;",
+        alt: "Toby, a boy with glasses and a red striped shirt",
+        text: "You're full of ideas! Not all of them work (remember the butter?), but you never stop trying. And you never leave your friends behind."
+      },
+      blackout: {
+        name: "Dr. Blackout", comic: "The Heroes with Twisted Legs", peek: "heroes",
+        pic: "--img: url(new-characters.png); --x: 795; --y: 20; --w: 240; --h: 410;",
+        alt: "Dr. Blackout, a villain with a monocle, a mustache and a purple cape",
+        text: "You're a big thinker with BIG plans. Maybe a little too big. Try using your genius for good instead of turning off the whole world!"
+      },
+      pooant: {
+        name: "Pooant", comic: "Praying Antis 2", peek: "antis2",
+        pic: "--img: url(new-characters.png); --x: 20; --y: 485; --w: 320; --h: 400;",
+        alt: "Pooant, an ant with a yellow cape holding a poo blaster",
+        text: "You're brave, you're funny, and you'll help anyone, even a hero who turned evil. Your methods are a little... smelly. But they WORK."
+      },
+      vonbolt: {
+        name: "Baron Von Bolt", comic: "Praying Antis 2", peek: "antis2",
+        pic: "--img: url(new-characters.png); --x: 410; --y: 455; --w: 280; --h: 430;",
+        alt: "Baron Von Bolt, a villain with goggles, a jetpack and a laser arm",
+        text: "You love gadgets and you always turn things up to MAXIMUM. You have the best evil laugh around. MWAHAHAHA!"
+      },
+      bot: {
+        name: "Battle Bot", comic: "Praying Antis 2", peek: "antis2",
+        pic: "--img: url(new-characters.png); --x: 750; --y: 495; --w: 330; --h: 385;",
+        alt: "Battle Bot, a big red robot with treads, a drill and a claw",
+        text: "You're strong, you're tough, and you never give up. You'd rather DO stuff than talk about it. Beep boop!"
       }
     };
 
@@ -92,17 +128,26 @@
     // Each answer gives a point to one character. Most points wins!
     const QUESTIONS = [
       { q: "What's your favorite snack?", answers: [
-        ["🥯 Bagels", "ray"], ["🍩 Donuts", "lou"], ["🦴 Dog treats", "biscuit"], ["🌶️ Super spicy chips", "antis"] ] },
+        ["🥯 Bagels", "ray"], ["🍩 Donuts", "lou"], ["🦴 Dog treats", "biscuit"], ["🌶️ Super spicy chips", "antis"], ["🍌 Bananas (I slip on the peels)", "max"] ] },
       { q: "What do you do on a Saturday?", answers: [
-        ["⚾ Play baseball", "gus"], ["😴 Take a big nap", "biscuit"], ["🦸 Save the day", "antis"], ["📣 Tell everyone how great I am", "barry"] ] },
+        ["⚾ Play baseball", "gus"], ["😴 Take a big nap", "biscuit"], ["🦸 Save the day", "antis"], ["📣 Tell everyone how great I am", "barry"], ["🔧 Build an evil invention", "vonbolt"] ] },
       { q: "Your friends say you're...", answers: [
-        ["🤝 Loyal", "ray"], ["😎 Confident (maybe TOO confident)", "barry"], ["💪 Determined", "gus"], ["🛋️ Super chill", "lou"] ] },
+        ["🤝 Loyal", "ray"], ["😎 Confident (maybe TOO confident)", "barry"], ["💪 Determined", "gus"], ["🛋️ Super chill", "lou"], ["😂 Hilarious", "pooant"] ] },
       { q: "A mosquito lands on you. What do you do?", answers: [
-        ["👋 Swat it... and miss", "barry"], ["🙋 Make my partner deal with it", "lou"], ["🔥 Bite it. It catches fire.", "antis"], ["🐕 Chase it around the room", "biscuit"] ] },
+        ["👋 Swat it... and miss", "barry"], ["🙋 Make my partner deal with it", "lou"], ["🔥 Bite it. It catches fire.", "antis"], ["🐕 Chase it around the room", "biscuit"], ["🤓 Study it through my glasses", "toby"] ] },
       { q: "What's your biggest dream?", answers: [
-        ["🏆 Win the World Series", "gus"], ["🥯 Share bagels with the whole world", "ray"], ["💰 Be in charge of the loot bag", "lou"], ["🌆 Be the city's greatest hero", "antis"] ] },
+        ["🏆 Win the World Series", "gus"], ["🥯 Share bagels with the whole world", "ray"], ["💰 Be in charge of the loot bag", "lou"], ["🌆 Be the city's greatest hero", "antis"], ["💵 Have a TRILLION dollars", "blackout"] ] },
       { q: "Pick a superpower:", answers: [
-        ["🥸 The most perfect mustache ever", "barry"], ["☢️ A glowing toxic eye", "biscuit"], ["💥 A mega home-run swing", "gus"], ["🙏 Getting anything just by asking nicely", "ray"] ] }
+        ["🥸 The most perfect mustache ever", "barry"], ["☢️ A glowing toxic eye", "biscuit"], ["💥 A mega home-run swing", "gus"], ["🙏 Getting anything just by asking nicely", "ray"], ["🦾 Being made of solid metal", "bot"] ] },
+      { q: "Uh oh, the power goes out! What do you do?", answers: [
+        ["🔦 Trip over everything in the dark", "max"], ["🧈 Come up with an idea (probably a bad one)", "toby"],
+        ["😈 Laugh. I did it on purpose.", "blackout"], ["🤖 Turn on my glowing robot eyes", "bot"] ] },
+      { q: "Pick a cool gadget:", answers: [
+        ["💩 A poo blaster", "pooant"], ["🚀 A jetpack", "vonbolt"],
+        ["⚡ A machine that controls the world's power", "blackout"], ["🛠️ A giant drill arm", "bot"] ] },
+      { q: "How do you get around?", answers: [
+        ["🦵 Hopping, with my best friend", "toby"], ["🤸 Falling. A LOT.", "max"],
+        ["🦸 Running, with my cape flapping", "pooant"], ["🔥 Flying (until my jetpack catches fire)", "vonbolt"] ] }
     ];
 
     const quiz = document.getElementById("quiz");

@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="style.css">
   <!-- Dark mode (and its button) -->
   <script src="site.js"></script>
+  <!-- The trading cards (so the game can say "New card!") -->
+  <script src="cards.js"></script>
 </head>
 
 <body>
@@ -162,6 +164,7 @@
     <!-- MORE GAMES -->
     <p class="more-games">
       <a class="button" href="snowball.html">❄️ Snowball Fight</a>
+      <a class="button" href="cards.html">🃏 My Cards</a>
       <a class="button" href="stats.html">📊 My Stats</a>
     </p>
 
@@ -859,7 +862,10 @@
       { id: "ice",       name: "Ice",       how: "Buy it in the Coin Shop", shop: true,
         wing: "#d8f3ff", fold: "#7cc4f2", pattern: "frost" },
       { id: "rainbow",   name: "Rainbow",   how: "Buy it in the Coin Shop", shop: true,
-        wing: "#ff6b6b", fold: "#6b8bff", pattern: "rainbow" }
+        wing: "#ff6b6b", fold: "#6b8bff", pattern: "rainbow" },
+      // Fly as Pooant! His Poo Blaster lasts 2 seconds longer
+      { id: "pooant",    name: "Pooant",    how: "Get the Poo Power badge", badge: "poo",
+        wing: "#f6d64a", fold: "#c9a21a", pattern: "pooant" }
     ];
     function isSkinUnlocked(k) {
       if (k.need) return badgeCount() >= k.need;
@@ -1015,6 +1021,22 @@
     function beat(name) {   // call this when you beat a boss
       stats.bosses[name] = (stats.bosses[name] || 0) + 1;
       saveStats();
+      checkCards();
+    }
+    // TRADING CARDS: says "New card!" when you win one (the list is in cards.js)
+    function checkCards(quiet) {
+      if (typeof ownedCards !== "function") return;
+      let seen = {};
+      try { seen = JSON.parse(localStorage.getItem("hdboc-cards")) || {}; } catch (e) { seen = {}; }
+      let changed = false;
+      ownedCards().forEach(function (id) {
+        if (seen[id]) return;
+        seen[id] = true;
+        changed = true;
+        const c = CARDS.find(function (x) { return x.id === id; });
+        if (!quiet && toasts) toasts.push({ text: "🃏 New card: " + c.name + "!", t: 170 });
+      });
+      if (changed) { try { localStorage.setItem("hdboc-cards", JSON.stringify(seen)); } catch (e) {} }
     }
     function addGameToStats() {   // call this when a game ends
       stats.games = (stats.games || 0) + 1;
@@ -1660,7 +1682,7 @@
           powerupsThisGame++;
           if (u.type === "magnet") magnetTimer = powerTime();
           else if (u.type === "snowball") shield = true;   // lasts until you hit something
-          else if (u.type === "poo") pooTimer = 360;   // 6 seconds of poo!
+          else if (u.type === "poo") pooTimer = skin === "pooant" ? 480 : 360;   // 6 seconds of poo (8 as Pooant!)
           else slowTimer = powerTime();
           pops.push({ x: u.x, y: u.y, t: 50, text: u.type === "magnet" ? "MAGNET!" : u.type === "snowball" ? "SHIELD!" : u.type === "poo" ? "POO BLASTER!" : "SLOW-MO!" });
         }
@@ -1695,6 +1717,7 @@
             play("splat");
             pops.push({ x: p.x, y: p.y - 20, t: 45, text: "SPLAT! 💩" });
             earn("poo");
+            checkCards();
           }
         });
       });
@@ -2479,6 +2502,7 @@
         title = "LEVEL COMPLETE! +10 🪙";
         showShop();
       }
+      checkCards();
       if (storyLevel === 4) earn("story");      // end of Chapter 1
       if (storyLevel === 9) earn("chapter2");   // end of Chapter 2
       play("unlock");
@@ -3098,6 +3122,32 @@
           ctx.restore();
         }
       });
+
+      // The Pooant skin: his "P" badge on the wing, and Pooant riding on top!
+      if (k.pattern === "pooant") {
+        ctx.lineWidth = 1.5;
+        ctx.fillStyle = "#8a5a3a";
+        ctx.beginPath(); ctx.arc(-2, -4, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#f6d64a";
+        ctx.font = "bold 6px 'Segoe UI', Arial, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("P", -2, -3.6);
+        ctx.textBaseline = "alphabetic";
+        // his antennae
+        ctx.beginPath();
+        ctx.moveTo(-4, -17); ctx.quadraticCurveTo(-7, -24, -11, -25);
+        ctx.moveTo(0, -17); ctx.quadraticCurveTo(2, -24, 6, -25);
+        ctx.stroke();
+        // his head and big eyes
+        ctx.fillStyle = "#8a5a3a";
+        ctx.beginPath(); ctx.arc(-2, -13, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath(); ctx.arc(-4, -14, 1.8, 0, Math.PI * 2); ctx.arc(0.5, -14, 1.8, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#111";
+        ctx.beginPath(); ctx.arc(-3.6, -13.8, 0.8, 0, Math.PI * 2); ctx.arc(0.9, -13.8, 0.8, 0, Math.PI * 2); ctx.fill();
+        ctx.lineWidth = 3 / scale;
+      }
 
       // A sticker from the Plane Designer
       if (p.sticker) {
@@ -4212,7 +4262,8 @@
       if (localStorage.getItem("hdboc-advent-opened") === "yes") earn("advent");
       if ((Number(localStorage.getItem("hdboc-snowball-best")) || 0) >= 15) earn("snowpro");
     } catch (e) {}
-    document.addEventListener("hdboc-secret", function () { earn("secret"); });   // typed the code right here!
+    document.addEventListener("hdboc-secret", function () { earn("secret"); });
+    checkCards(true);   // cards you already have (no "New card!" for those)   // typed the code right here!
     loop();
   </script>
 

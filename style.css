@@ -2455,3 +2455,119 @@ tr.sold-out td {
   text-align: center;
 }
 
+
+/* ===== TRADING CARDS ===== */
+.card-count {
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+.tcards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 18px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.tcard {
+  position: relative;
+  overflow: hidden;
+  padding: 10px 12px 14px;
+  border: 6px solid var(--card, #111);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+.tcard h3 {
+  margin: 4px 0 0;
+  font-size: 22px;
+}
+.tcard .char-pic {
+  margin: 6px auto 6px;
+}
+.tcard-top {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+}
+.tcard-tag {
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--card, #111);
+  color: #fff;
+  font-size: 13px;
+  line-height: 22px;
+}
+.tcard-comic {
+  margin: 2px 0 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+.tcard-stats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  text-align: left;
+}
+.tcard-stats li {
+  display: grid;
+  grid-template-columns: 1fr 60px 22px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.tcard-bar {
+  height: 10px;
+  border: 2px solid var(--text);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.tcard-bar i {
+  display: block;
+  height: 100%;
+  background: var(--card, #111);
+}
+.tcard-stats b {
+  text-align: right;
+}
+/* Cards you don't have yet */
+.tcard.locked {
+  border-color: #8a8a8a;
+  background: repeating-linear-gradient(45deg, rgba(128, 128, 128, 0.12) 0 12px, transparent 12px 24px), var(--surface);
+}
+.tcard.locked .tcard-tag {
+  background: #8a8a8a;
+}
+.tcard-mystery {
+  width: 110px;
+  height: 150px;
+  margin: 8px auto;
+  border: 3px dashed #8a8a8a;
+  border-radius: 10px;
+  font-size: 80px;
+  font-weight: bold;
+  line-height: 150px;
+  color: #8a8a8a;
+}
+.tcard-how {
+  margin: 6px 0 0;
+  font-size: 15px;
+}
+/* Boss cards are SHINY! */
+.tcard.shiny::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.55) 45%, transparent 60%);
+  transform: translateX(-100%);
+  animation: shine 3s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes shine {
+  60%, 100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tcard.shiny::after { animation: none; }
+}
