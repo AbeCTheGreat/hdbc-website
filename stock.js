@@ -11,6 +11,7 @@ const STOCK = {
   "Praying Antis":    "in stock",
   "Not Smart Sports": "in stock",
   "Heroes with Twisted Legs": "in stock",
+  "Praying Antis 2": "in stock",
   "Original":         "in stock",
   "Looper":           "in stock",
   "Sky Fin":          "in stock",

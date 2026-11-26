@@ -52,10 +52,10 @@
            bottom of the page uses them to add up the total. -->
       <table class="price-list">
         <tr><th>Item</th><th>Price</th><th>How many?</th></tr>
-        <!-- COMBO DEAL: all 4 comics for $15 (they cost $18 separately) -->
-        <tr class="combo-row"><td><strong>Comic Combo: all 4 comics</strong> <span class="save">Save $3!</span></td><td>$15</td>
+        <!-- COMBO DEAL: all 5 comics for $18 (they cost $22 separately) -->
+        <tr class="combo-row"><td><strong>Comic Combo: all 5 comics</strong> <span class="save">Save $4!</span></td><td>$18</td>
             <td><input class="qty" id="qty-combo" type="number" min="0" max="20" value="0" aria-label="How many Comic Combos"
-                 data-price="15" data-option="Comic Combo: all 4 comics - $15" data-name="Comic Combo"></td></tr>
+                 data-price="18" data-option="Comic Combo: all 5 comics - $18" data-name="Comic Combo"></td></tr>
         <!-- COMBO DEAL: any comic + any 2 paper airplanes for $5 -->
         <tr class="combo-row"><td><strong>Plane Combo: 1 comic + 2 paper airplanes</strong> <span class="save">Combo deal!</span></td><td>$5</td>
             <td><input class="qty" id="qty-planecombo" type="number" min="0" max="20" value="0" aria-label="How many Plane Combos"
@@ -70,6 +70,7 @@
                 <option>Praying Antis</option>
                 <option>Not Smart Sports</option>
                 <option>Heroes with Twisted Legs</option>
+                <option>Praying Antis 2</option>
               </select></label>
             <label for="pc-plane1">Plane 1:
               <select id="pc-plane1" class="pc-plane">
@@ -92,9 +93,12 @@
         <tr><td>Not Smart Sports: Baseball Edition (comic)</td><td>$4</td>
             <td><input class="qty" id="qty-notsmartsports" type="number" min="0" max="20" value="0" aria-label="How many Not Smart Sports: Baseball Edition"
                  data-price="4" data-option="Not Smart Sports: Baseball Edition (comic) - $4" data-name="Not Smart Sports"></td></tr>
-        <tr><td>The Heroes with Twisted Legs (comic) <span class="new-tag">NEW!</span></td><td>$4</td>
+        <tr><td>The Heroes with Twisted Legs (comic)</td><td>$4</td>
             <td><input class="qty" id="qty-heroes" type="number" min="0" max="20" value="0" aria-label="How many The Heroes with Twisted Legs"
                  data-price="4" data-option="The Heroes with Twisted Legs (comic) - $4" data-name="Heroes with Twisted Legs"></td></tr>
+        <tr><td>Praying Antis 2 (comic) <span class="new-tag">NEW!</span></td><td>$4</td>
+            <td><input class="qty" id="qty-antis2" type="number" min="0" max="20" value="0" aria-label="How many Praying Antis 2"
+                 data-price="4" data-option="Praying Antis 2 (comic) - $4" data-name="Praying Antis 2"></td></tr>
         <tr><td>The Original (paper airplane)</td><td>$0.50</td>
             <td><input class="qty" id="qty-original" type="number" min="0" max="20" value="0" aria-label="How many Originals"
                  data-price="0.5" data-option="Original (paper airplane) - $0.50" data-name="Original"></td></tr>
@@ -109,8 +113,8 @@
                  data-price="1.1" data-option="Sky Fin+ (paper airplane) - $1.10" data-name="Sky Fin+"></td></tr>
         <tr class="total-row"><td colspan="2">Total</td><td id="total">$0.00</td></tr>
       </table>
-      <!-- Shows up if someone picks all 4 comics one by one -->
-      <p class="combo-hint" id="combo-hint" hidden>💡 You picked all 4 comics! Get the <strong>Comic Combo</strong> instead and save $3.</p>
+      <!-- Shows up if someone picks all 5 comics one by one -->
+      <p class="combo-hint" id="combo-hint" hidden>💡 You picked all 5 comics! Get the <strong>Comic Combo</strong> instead and save $4.</p>
 
       <!-- PICKUP DATE: a calendar. The script below blocks weekends and past days. -->
       <p class="day-picker">
@@ -202,7 +206,7 @@
       });
 
       // If they picked at least 1 of each comic, tell them about the combo
-      const eachComic = ["qty-cops", "qty-antis", "qty-notsmartsports", "qty-heroes"].every(function (id) {
+      const eachComic = ["qty-cops", "qty-antis", "qty-notsmartsports", "qty-heroes", "qty-antis2"].every(function (id) {
         return Number(document.getElementById(id).value) > 0;
       });
       document.getElementById("combo-hint").hidden = !eachComic;
