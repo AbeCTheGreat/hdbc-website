@@ -68,8 +68,8 @@ const CARDS = [
   { id: "bot", name: "Battle Bot", comic: "Praying Antis 2", color: "#c9a21a", boss: true,
     pic: "--img: url(new-characters.png); --x: 750; --y: 495; --w: 330; --h: 385;",
     stats: [["Strength", 10], ["Drill", 9], ["Brains", 3]],
-    how: "Finish Chapter 2 of Story Mode",
-    has: function (d) { return d.story >= 11; } }
+    how: "Beat Battle Bot (or finish Chapter 2 of Story Mode)",
+    has: function (d) { return (d.bosses.bot || 0) >= 1 || d.story >= 11; } }
 ];
 
 // Reads your saved game data (it's saved in this browser)

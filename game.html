@@ -300,7 +300,7 @@
     let boss, barks, bossDone;   // the Biscuit boss fight
     let cops, donuts, copsDone;  // the Not Smart Cops boss fight (at 100 points)
     let antis, fireballs, antisDone;   // the PrayingAntis boss fight (at 150 points)
-    let villain, zaps, blackoutDone, vonboltDone;   // Dr. Blackout (200 points) and Baron Von Bolt (250 points)
+    let villain, zaps, blackoutDone, vonboltDone, botDone;   // Dr. Blackout (200 points), Baron Von Bolt (250) and Battle Bot (300)
     let pooTimer = 0, poos = [], pooSpawn = 0, pooHitsThisGame = 0;      // the 💩 Poo Blaster power-up
     let weather, weatherTimer, windDir, rainDrops, bolt, boltsDodged, flash;   // the weather
     let ghostRun, ghostData, ghostPassed;   // the ghost plane
@@ -980,6 +980,7 @@
       { id: "antisday", text: "Beat PrayingAntis (any mode)",                    check: function (g) { return g.antis; } },
       { id: "lightsday", text: "Beat Dr. Blackout (any mode)",                   check: function (g) { return g.blackout; } },
       { id: "boltday",  text: "Beat Baron Von Bolt (any mode)",                  check: function (g) { return g.vonbolt; } },
+      { id: "botday",   text: "Beat Battle Bot (any mode)",                      check: function (g) { return g.bot; } },
       { id: "pooday",   text: "Hit a boss 3 times with the Poo Blaster 💩",      check: function (g) { return g.poos >= 3; } }
     ];
     const CHALLENGE_COINS = 15;   // coins for finishing today's challenge
@@ -1033,7 +1034,7 @@
       const c = todaysChallenge();
       if (c.plane && c.plane !== chosen) return;
       if (c.check({ score: score, coins: coinsThisGame, powerups: powerupsThisGame, bolts: boltsDodged,
-                    antis: antisDone, blackout: blackoutDone, vonbolt: vonboltDone, poos: pooHitsThisGame })) {
+                    antis: antisDone, blackout: blackoutDone, vonbolt: vonboltDone, bot: botDone, poos: pooHitsThisGame })) {
         daily.done = true;
         challengesDone++;
         const t = todayText();
@@ -1277,6 +1278,7 @@
       zaps = [];         // their zaps and lasers
       blackoutDone = false;
       vonboltDone = false;
+      botDone = false;
       pooTimer = 0;      // the Poo Blaster is off
       poos = [];
       pooSpawn = 0;
@@ -1777,7 +1779,7 @@
       if (mode === "rush" && !boss && !cops && !antis && !snowman && !villain) {
         rushWait--;
         if (rushWait <= 0) {
-          const list = WINTER ? ["biscuit", "snowman", "cops", "antis", "blackout", "vonbolt"] : ["biscuit", "cops", "antis", "blackout", "vonbolt"];
+          const list = WINTER ? ["biscuit", "snowman", "cops", "antis", "blackout", "vonbolt", "bot"] : ["biscuit", "cops", "antis", "blackout", "vonbolt", "bot"];
           if (rushStep >= list.length) {
             // You beat every boss! Round 2, 3, 4... gets faster each time
             rushStep = 0;
@@ -1967,9 +1969,17 @@
       const noBoss = !boss && !cops && !antis && !snowman && !villain && !shark && !erupt && !bandit;
       if (mode === "normal" && noBoss && !blackoutDone && score >= 200) startVillain("blackout");
       if (mode === "normal" && noBoss && blackoutDone && !vonboltDone && score >= 250) startVillain("vonbolt");
+      // Battle Bot rolls along the ground on his treads and fires drills. Dodge 14!
+      if (mode === "normal" && noBoss && vonboltDone && !botDone && score >= 300) startVillain("bot");
       if (villain) {
-        const v = villain, home = 315, jet = v.kind === "vonbolt";
+        const v = villain, home = 315, jet = v.kind === "vonbolt", bot = v.kind === "bot";
         if (v.leaving) { v.x += 3; if (jet) v.y -= 3; }
+        else if (bot) {
+          // Rolls back and forth on the ground
+          if (v.x > home) v.x -= 2;
+          else v.x = home + Math.sin(frame / 40) * 25;
+          v.y = GROUND - 75 + Math.abs(Math.sin(frame / 6)) * -3;   // bumpy treads
+        }
         else {
           if (v.x > home) v.x -= 2;
           v.y = H / 2 - 20 + Math.sin(frame / (jet ? 28 : 45)) * (jet ? 150 : 90);
@@ -1979,13 +1989,18 @@
           if (v.timer <= 0 && v.left > 0) {
             v.left--;
             v.shots++;
-            v.timer = (jet ? 44 : 58) / hard();
-            const sx = v.x - (jet ? 52 : 30), sy = v.y - (jet ? 11 : 40);
-            const vx = (jet ? -6.5 : -4.2) * hard();
-            const vy = Math.max(-3, Math.min(3, (plane.y - sy) / ((sx - plane.x) / -vx)));
+            v.timer = (jet ? 44 : bot ? 50 : 58) / hard();
+            const sx = v.x - (jet ? 52 : bot ? 60 : 30), sy = v.y - (jet ? 11 : bot ? 30 : 40);
+            const vx = (jet ? -6.5 : bot ? -5 : -4.2) * hard();
+            const vy = Math.max(bot ? -5 : -3, Math.min(3, (plane.y - sy) / ((sx - plane.x) / -vx)));
             zaps.push({ x: sx, y: sy, vx: vx, vy: vy, kind: v.kind });
             // ZAP! ZAP! ZAP! Every few shots is a 3-way blast
-            if (v.shots % (jet ? 4 : 3) === 0) {
+            if (bot && v.shots % 4 === 0) {
+              // SCRAP BLAST! Bolts and nuts fly up and fall back down
+              [-2.5, -4, -5.5].forEach(function (up, i) {
+                zaps.push({ x: sx, y: sy, vx: vx * (0.55 + i * 0.15), vy: up - 2, kind: "scrap", fall: true });
+              });
+            } else if (!bot && v.shots % (jet ? 4 : 3) === 0) {
               zaps.push({ x: sx, y: sy, vx: vx, vy: vy - 1.5, kind: v.kind });
               zaps.push({ x: sx, y: sy, vx: vx, vy: vy + 1.5, kind: v.kind });
             }
@@ -1995,7 +2010,11 @@
         if (!v.leaving && v.left === 0 && zaps.length === 0) {
           v.leaving = true;
           score += 15;
-          if (jet) {
+          if (bot) {
+            botDone = true;
+            beat("bot");
+            toasts.push({ text: "🤖 \"BEEP BOOP... SYSTEM ERROR!\" +15", t: 150 });
+          } else if (jet) {
             vonboltDone = true;
             beat("vonbolt");
             toasts.push({ text: "⚡ \"My JETPACK! It's on FIRE!\" +15", t: 150 });
@@ -2012,6 +2031,7 @@
       zaps.forEach(function (z) {
         z.x += z.vx * slow;
         z.y += z.vy * slow;
+        if (z.fall) z.vy += 0.12 * slow;   // scrap falls back down
         if (!z.passed && z.x < plane.x - 30) { z.passed = true; score += 1; checkUnlock(); }
       });
       zaps = zaps.filter(function (z) { return z.x > -40 && z.y > -40 && z.y < GROUND + 40; });
@@ -2387,12 +2407,15 @@
     }
     function startVillain(kind) {
       pic("new-characters.png");   // load their picture
-      villain = { kind: kind, x: W + 120, y: H / 2, left: kind === "vonbolt" ? 12 : 10, timer: 100, leaving: false, shots: 0 };
+      villain = { kind: kind, x: W + 120, y: H / 2, left: kind === "vonbolt" ? 12 : kind === "bot" ? 14 : 10, timer: 100, leaving: false, shots: 0 };
       weather = "clear";
       bolt = null;
       if (kind === "vonbolt") {
         play("fire");
         toasts.push({ text: "⚡ BARON VON BOLT! Dodge the lasers!", t: 150 });
+      } else if (kind === "bot") {
+        play("boss");
+        toasts.push({ text: "🤖 BATTLE BOT! Dodge the drills!", t: 150 });
       } else {
         play("boss");
         toasts.push({ text: "💡 DR. BLACKOUT turned the lights OUT!", t: 150 });
@@ -2425,7 +2448,8 @@
       toby:     { name: "Toby",           img: "new-characters.png", x: 460, y: 40,  w: 180, h: 400 },
       blackout: { name: "Dr. Blackout",   img: "new-characters.png", x: 795, y: 20,  w: 240, h: 410 },
       pooant:   { name: "Pooant",         img: "new-characters.png", x: 20,  y: 485, w: 320, h: 400 },
-      vonbolt:  { name: "Baron Von Bolt", img: "new-characters.png", x: 410, y: 455, w: 280, h: 430 }
+      vonbolt:  { name: "Baron Von Bolt", img: "new-characters.png", x: 410, y: 455, w: 280, h: 430 },
+      bot:      { name: "Battle Bot",     img: "new-characters.png", x: 750, y: 495, w: 330, h: 385 }
     };
     // The 5 levels. Each has: a comic scene, a goal, boss(es), and an ending scene.
     const STORY = [
@@ -3630,10 +3654,11 @@
       }
       const c = CAST[v.kind];
       const img = pic(c.img);
-      const h = v.kind === "vonbolt" ? 160 : 170, w = h * c.w / c.h;
+      const h = v.kind === "vonbolt" ? 160 : v.kind === "bot" ? 150 : 170, w = h * c.w / c.h;
       if (img.complete && img.naturalWidth) ctx.drawImage(img, c.x, c.y, c.w, c.h, v.x - w / 2, v.y - h / 2, w, h);
       if (!v.leaving) {
-        comicText((v.kind === "blackout" ? "Zaps left: " : "Lasers left: ") + v.left, v.x - 10, v.y + h / 2 + 22, 18,
+        if (v.kind === "bot") comicText("Drills left: " + v.left, v.x - 10, v.y - h / 2 - 10, 18, "#c0c8d2");
+        else comicText((v.kind === "blackout" ? "Zaps left: " : "Lasers left: ") + v.left, v.x - 10, v.y + h / 2 + 22, 18,
                   v.kind === "blackout" ? "#f2c230" : "#ff6b5e");
       }
     }
@@ -3641,7 +3666,38 @@
     function drawZaps() {
       zaps.forEach(function (z) {
         ctx.save();
-        if (z.kind === "vonbolt") {
+        if (z.kind === "bot") {
+          // A spinning drill bit, pointing the way it flies
+          ctx.translate(z.x, z.y);
+          ctx.rotate(Math.atan2(z.vy, z.vx));
+          ctx.fillStyle = "#b9c2cc";
+          ctx.strokeStyle = "#111";
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(-8, -8); ctx.lineTo(-8, 8); ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.strokeStyle = "#5d6670";
+          ctx.lineWidth = 1.5;
+          const turn = (frame % 6) * 2;
+          for (let k = -6 + turn % 6; k < 12; k += 6) {   // the spinning grooves
+            const half = 8 * (14 - k) / 22;
+            ctx.beginPath(); ctx.moveTo(k, -half); ctx.lineTo(k + 3, half); ctx.stroke();
+          }
+          ctx.fillStyle = "#d33a2c";
+          ctx.fillRect(-14, -5, 6, 10);
+          ctx.strokeStyle = "#111";
+          ctx.strokeRect(-14, -5, 6, 10);
+        } else if (z.kind === "scrap") {
+          // A spinning metal nut
+          ctx.translate(z.x, z.y);
+          ctx.rotate(frame / 5 + z.vx);
+          ctx.fillStyle = "#8f99a4";
+          ctx.strokeStyle = "#111";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let k = 0; k < 6; k++) ctx.lineTo(Math.cos(k * Math.PI / 3) * 10, Math.sin(k * Math.PI / 3) * 10);
+          ctx.closePath(); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = "#3a4048";
+          ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+        } else if (z.kind === "vonbolt") {
           ctx.lineCap = "round";
           ctx.strokeStyle = "rgba(255, 70, 50, 0.5)";
           ctx.lineWidth = 12;

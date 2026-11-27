@@ -271,7 +271,8 @@ a.card:hover {
   justify-content: center;
 }
 .mini-covers .cover {
-  width: 31%;
+  flex: 0 1 31%;   /* shrinks so all 5 covers fit, even on a phone */
+  min-width: 0;
 }
 
 /* ===== ORDER CALCULATOR ===== */
@@ -2613,4 +2614,46 @@ tr.sold-out td {
 .trade-title {
   text-align: center;
   margin: 24px 0 12px;
+}
+
+/* ===== HOLIDAY COUNTDOWN (homepage) ===== */
+.holiday-box {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 18px 20px 14px;
+  border-radius: 16px;
+  background: var(--holiday, #1d4e89);
+  color: #fff;
+  text-align: center;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+}
+.holiday-box h2 {
+  margin: 4px 0 10px;
+  color: #fff;
+}
+.holiday-pic {
+  margin: 0;
+  font-size: 54px;
+  line-height: 1.1;
+  letter-spacing: 6px;
+}
+.holiday-clock {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.holiday-clock .countdown-unit {
+  background: rgba(255, 255, 255, 0.18);
+}
+.holiday-date {
+  margin: 10px 0 0;
+  font-size: 15px;
+  opacity: 0.9;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .holiday-pic { animation: holiday-bounce 2.4s ease-in-out infinite; }
+}
+@keyframes holiday-bounce {
+  50% { transform: translateY(-6px); }
 }

@@ -159,6 +159,16 @@
     </div>
   </section>
 
+  <!-- HOLIDAY COUNTDOWN: counts down to the next big day. The script at the bottom fills it in. -->
+  <section id="holiday">
+    <div class="holiday-box" id="holiday-box">
+      <p class="holiday-pic" id="holiday-pic" aria-hidden="true"></p>
+      <h2 id="holiday-title">Holiday Countdown</h2>
+      <div class="holiday-clock" id="holiday-clock"></div>
+      <p class="holiday-date" id="holiday-date"></p>
+    </div>
+  </section>
+
   <!-- JOKE OF THE DAY: a new joke every day (the jokes are in the script at the bottom) -->
   <section id="joke">
     <h2>😂 Joke of the Day</h2>
@@ -237,7 +247,81 @@
         button.hidden = true;
       });
     })();
-  </script>
 
+    // ===== HOLIDAY COUNTDOWN =====
+    // Add your own holidays! month: 1 = January ... 12 = December.
+    // pic = the emojis in the picture, color = the box color
+    function easter(year) {   // Easter moves every year, so we figure it out with math
+      const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+      const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30;
+      const i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+      return new Date(year, Math.floor((h + l - 7 * m + 114) / 31) - 1, ((h + l - 7 * m + 114) % 31) + 1);
+    }
+    function thanksgiving(year) {   // the 4th Thursday in November
+      const first = new Date(year, 10, 1);
+      return new Date(year, 10, 1 + ((4 - first.getDay() + 7) % 7) + 21);
+    }
+    const HOLIDAYS = [
+      { name: "New Year's Day",    pic: "🎆🥳🎉", color: "#1d2a5c", date: function (y) { return new Date(y, 0, 1); } },
+      { name: "Valentine's Day",   pic: "💖💌🍫", color: "#b8325a", date: function (y) { return new Date(y, 1, 14); } },
+      { name: "St. Patrick's Day", pic: "🍀🌈🪙", color: "#2e7d32", date: function (y) { return new Date(y, 2, 17); } },
+      { name: "Easter",            pic: "🐰🥚🌷", color: "#7b5ea7", date: easter },
+      { name: "the 4th of July",   pic: "🎆🇺🇸🌭", color: "#1d4e89", date: function (y) { return new Date(y, 6, 4); } },
+      { name: "Halloween",         pic: "🎃👻🍬", color: "#c25a0c", date: function (y) { return new Date(y, 9, 31); } },
+      { name: "Thanksgiving",      pic: "🦃🥧🍂", color: "#8a4b1c", date: thanksgiving },
+      { name: "Christmas",         pic: "🎄🎁⛄", color: "#a3201f", date: function (y) { return new Date(y, 11, 25); } }
+    ];
+
+    // ----- You don't need to change anything below this line -----
+    (function () {
+      // Finds the next holiday (or today's, if it's a holiday today!)
+      function nextHoliday(now) {
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let best = null;
+        [now.getFullYear(), now.getFullYear() + 1].forEach(function (y) {
+          HOLIDAYS.forEach(function (h) {
+            const d = h.date(y);
+            if (d >= today && (!best || d < best.day)) best = { h: h, day: d };
+          });
+        });
+        return best;
+      }
+      const box = document.getElementById("holiday-box");
+      const clock = document.getElementById("holiday-clock");
+      function unit(n, label) {
+        const u = document.createElement("span");
+        u.className = "countdown-unit";
+        const b = document.createElement("strong");
+        b.textContent = n;
+        u.append(b, label);
+        return u;
+      }
+      function tick() {
+        const now = new Date();
+        const next = nextHoliday(now);
+        box.style.setProperty("--holiday", next.h.color);
+        document.getElementById("holiday-pic").textContent = next.h.pic;
+        document.getElementById("holiday-date").textContent = next.day.toLocaleDateString("en-US",
+          { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+        const left = next.day - now;
+        clock.innerHTML = "";
+        if (left <= 0) {
+          // It's the holiday TODAY!
+          document.getElementById("holiday-title").textContent = "🎉 Happy " + next.h.name.replace(/^the /, "") + "!";
+          const p = document.createElement("span");
+          p.className = "countdown-done";
+          p.textContent = "It's TODAY!";
+          clock.appendChild(p);
+          return;
+        }
+        document.getElementById("holiday-title").textContent = "Countdown to " + next.h.name;
+        const sec = Math.floor(left / 1000);
+        clock.append(unit(Math.floor(sec / 86400), "days"), unit(Math.floor(sec / 3600) % 24, "hours"),
+                     unit(Math.floor(sec / 60) % 60, "min"), unit(sec % 60, "sec"));
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
 </body>
 </html>
