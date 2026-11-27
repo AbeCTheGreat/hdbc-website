@@ -301,7 +301,7 @@
     let cops, donuts, copsDone;  // the Not Smart Cops boss fight (at 100 points)
     let antis, fireballs, antisDone;   // the PrayingAntis boss fight (at 150 points)
     let villain, zaps, blackoutDone, vonboltDone;   // Dr. Blackout (200 points) and Baron Von Bolt (250 points)
-    let pooTimer = 0, poos = [], pooSpawn = 0;      // the 💩 Poo Blaster power-up
+    let pooTimer = 0, poos = [], pooSpawn = 0, pooHitsThisGame = 0;      // the 💩 Poo Blaster power-up
     let weather, weatherTimer, windDir, rainDrops, bolt, boltsDodged, flash;   // the weather
     let ghostRun, ghostData, ghostPassed;   // the ghost plane
     let space = 0;   // the secret level: 0 = not yet, 1 = all the way in OUTER SPACE
@@ -690,6 +690,10 @@
     let hat = "none";
     try { hat = localStorage.getItem("hdboc-hat") || "none"; } catch (e) {}
     if (hat !== "none" && !owned[hat]) hat = "none";
+    let trailId = "none";   // which trail your plane leaves behind
+    try { trailId = localStorage.getItem("hdboc-trail") || "none"; } catch (e) {}
+    if (trailId !== "none" && !owned[trailId]) trailId = "none";
+    let trailBits = [];     // the little pieces of the trail
 
     const SHOP = [
       { id: "party",     type: "hat",  icon: "🥳", name: "Party Hat",     price: 10 },
@@ -709,7 +713,13 @@
       { id: "minibug",   type: "buddy", icon: "🦗", name: "Mini Antis",    price: 60,  about: "Grabs coins near you" },
       { id: "bird",      type: "buddy", icon: "🐦", name: "Birdie",        price: 70,  about: "Super fast! Grabs coins from far away" },
       { id: "bee",       type: "buddy", icon: "🐝", name: "Buzzy Bee",     price: 85,  about: "Honey coins: coins it grabs are worth 2" },
-      { id: "dragon",    type: "buddy", icon: "🐉", name: "Sparky",        price: 120, about: "A tiny dragon! Burns up a danger every 8 seconds" }
+      { id: "dragon",    type: "buddy", icon: "🐉", name: "Sparky",        price: 120, about: "A tiny dragon! Burns up a danger every 8 seconds" },
+      // TRAILS: your plane leaves something cool behind it
+      { id: "t-sparkle", type: "trail", icon: "✨", name: "Sparkle Trail", price: 25 },
+      { id: "t-hearts",  type: "trail", icon: "💖", name: "Heart Trail",   price: 30 },
+      { id: "t-fire",    type: "trail", icon: "🔥", name: "Fire Trail",    price: 35 },
+      { id: "t-rainbow", type: "trail", icon: "🌈", name: "Rainbow Trail", price: 40 },
+      { id: "t-poo",     type: "trail", icon: "💩", name: "Poo Trail",     price: 45, about: "Pooant would be proud" }
     ];
 
     // ----- UPGRADES -----
@@ -774,6 +784,7 @@
         localStorage.setItem("hdboc-owned", JSON.stringify(owned));
         localStorage.setItem("hdboc-hat", hat);
         localStorage.setItem("hdboc-buddy", buddy);
+        localStorage.setItem("hdboc-trail", trailId);
       } catch (e) {}
     }
 
@@ -787,7 +798,8 @@
         if (item.gift && !owned[item.id]) return;   // gifts only show up once you have them
         const card = document.createElement("div");
         const have = !!owned[item.id];
-        const wearing = item.type === "hat" ? hat === item.id : item.type === "buddy" ? buddy === item.id : skin === item.id;
+        const wearing = item.type === "hat" ? hat === item.id : item.type === "buddy" ? buddy === item.id :
+          item.type === "trail" ? trailId === item.id : skin === item.id;
         card.className = "shop-item" + (have ? " owned" : "") + (wearing ? " wearing" : "");
         const icon = document.createElement("span");
         icon.className = "shop-icon";
@@ -800,10 +812,10 @@
           b.textContent = "Buy: " + item.price + " 🪙";
           b.disabled = wallet < item.price;
         } else if (wearing) {
-          b.textContent = item.type === "hat" ? "Take off" : item.type === "buddy" ? "Send home" : "✓ Wearing";
+          b.textContent = item.type === "hat" ? "Take off" : item.type === "buddy" ? "Send home" : item.type === "trail" ? "Turn off" : "✓ Wearing";
           b.disabled = item.type === "skin";
         } else {
-          b.textContent = item.type === "buddy" ? "Bring along" : "Wear";
+          b.textContent = item.type === "buddy" ? "Bring along" : item.type === "trail" ? "Turn on" : "Wear";
         }
         b.addEventListener("click", function () {
           if (state === "playing" || state === "paused") return;   // no shopping mid-flight!
@@ -819,6 +831,7 @@
           // Put it on (or take the hat off)
           if (item.type === "hat") hat = (have && wearing) ? "none" : item.id;
           else if (item.type === "buddy") buddy = (have && wearing) ? "none" : item.id;
+          else if (item.type === "trail") trailId = (have && wearing) ? "none" : item.id;
           else {
             skin = item.id;
             try { localStorage.setItem("hdboc-skin", skin); } catch (e) {}
@@ -958,8 +971,18 @@
       { id: "score30",  text: "Score 30 with any plane",                         check: function (g) { return g.score >= 30; } },
       { id: "power2",   text: "Grab 2 power-ups in one game",                    check: function (g) { return g.powerups >= 2; } },
       { id: "fin12",    text: "Score 12 with Sky Fin",      plane: "skyfin",     check: function (g) { return g.score >= 12; } },
-      { id: "orig6c",   text: "Grab 6 coins with The Original", plane: "original", check: function (g) { return g.coins >= 6; } }
+      { id: "orig6c",   text: "Grab 6 coins with The Original", plane: "original", check: function (g) { return g.coins >= 6; } },
+      { id: "nopower30", text: "Score 30 without grabbing a power-up",            check: function (g) { return g.score >= 30 && g.powerups === 0; } },
+      { id: "nocoin15", text: "Score 15 without grabbing a coin",                 check: function (g) { return g.score >= 15 && g.coins === 0; } },
+      { id: "coins15",  text: "Grab 15 coins in one game",                       check: function (g) { return g.coins >= 15; } },
+      { id: "score60",  text: "Score 60 in one game",                            check: function (g) { return g.score >= 60; } },
+      { id: "dodge3",   text: "Dodge 3 lightning bolts",                         check: function (g) { return g.bolts >= 3; } },
+      { id: "antisday", text: "Beat PrayingAntis (any mode)",                    check: function (g) { return g.antis; } },
+      { id: "lightsday", text: "Beat Dr. Blackout (any mode)",                   check: function (g) { return g.blackout; } },
+      { id: "boltday",  text: "Beat Baron Von Bolt (any mode)",                  check: function (g) { return g.vonbolt; } },
+      { id: "pooday",   text: "Hit a boss 3 times with the Poo Blaster 💩",      check: function (g) { return g.poos >= 3; } }
     ];
+    const CHALLENGE_COINS = 15;   // coins for finishing today's challenge
     function todayText() {
       const d = new Date();
       return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
@@ -967,6 +990,18 @@
     let daily = null;     // today's challenge: { date, id, done }
     let challengesDone = 0;
     try { challengesDone = Number(localStorage.getItem("hdboc-daily-count")) || 0; } catch (e) {}
+    // STREAK: how many days in a row you finished the challenge
+    let challengeStreak = { last: "", days: 0 };
+    try { challengeStreak = JSON.parse(localStorage.getItem("hdboc-daily-streak")) || challengeStreak; } catch (e) {}
+    function dayBefore(text) {
+      const d = new Date(text + "T12:00:00");
+      d.setDate(d.getDate() - 1);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    }
+    function streakNow() {   // your streak still counts if you finished yesterday or today
+      const t = todayText();
+      return challengeStreak.last === t || challengeStreak.last === dayBefore(t) ? challengeStreak.days : 0;
+    }
 
     function pickChallenge() {
       try { daily = JSON.parse(localStorage.getItem("hdboc-daily")); } catch (e) { daily = null; }
@@ -984,9 +1019,11 @@
     function showChallenge() {
       const c = todaysChallenge();
       document.getElementById("challenge-text").textContent = c.text;
-      document.getElementById("challenge-status").textContent = daily.done
+      const streak = streakNow();
+      document.getElementById("challenge-status").textContent = (daily.done
         ? "✅ Done! Come back tomorrow for a new one."
-        : "Challenges finished: " + challengesDone;
+        : "Prize: " + CHALLENGE_COINS + " 🪙 · Challenges finished: " + challengesDone) +
+        (streak > 0 ? " · 🔥 " + streak + " day" + (streak === 1 ? "" : "s") + " in a row" : "");
       document.getElementById("challenge").classList.toggle("done", daily.done);
     }
     // Runs every frame while you fly
@@ -995,14 +1032,22 @@
       if (daily.date !== todayText()) return;   // it turned midnight while playing!
       const c = todaysChallenge();
       if (c.plane && c.plane !== chosen) return;
-      if (c.check({ score: score, coins: coinsThisGame, powerups: powerupsThisGame })) {
+      if (c.check({ score: score, coins: coinsThisGame, powerups: powerupsThisGame, bolts: boltsDodged,
+                    antis: antisDone, blackout: blackoutDone, vonbolt: vonboltDone, poos: pooHitsThisGame })) {
         daily.done = true;
         challengesDone++;
+        const t = todayText();
+        challengeStreak = { last: t, days: streakNow() + 1 };
+        wallet += CHALLENGE_COINS;
         try {
           localStorage.setItem("hdboc-daily", JSON.stringify(daily));
           localStorage.setItem("hdboc-daily-count", String(challengesDone));
+          localStorage.setItem("hdboc-daily-streak", JSON.stringify(challengeStreak));
+          localStorage.setItem("hdboc-wallet", String(wallet));
         } catch (e) {}
-        toasts.push({ text: "📅 Daily challenge done!", t: 150 });
+        toasts.push({ text: "📅 Daily challenge done! +" + CHALLENGE_COINS + " 🪙", t: 150 });
+        if (challengeStreak.days > 1) toasts.push({ text: "🔥 " + challengeStreak.days + " days in a row!", t: 150 });
+        play("unlock");
         earn("challenge");
         showChallenge();
       }
@@ -1201,6 +1246,8 @@
 
     function reset() {
       plane = { x: 90, y: H / 2, vy: 0, spin: 0 };
+      trailBits = [];
+      pooHitsThisGame = 0;
       stacks = [];
       coins = [];   // gold coins floating between the stacks
       pops = [];    // little "+1" signs when you grab a coin
@@ -1716,6 +1763,7 @@
             checkUnlock();
             play("splat");
             pops.push({ x: p.x, y: p.y - 20, t: 45, text: "SPLAT! 💩" });
+            pooHitsThisGame++;
             earn("poo");
             checkCards();
           }
@@ -4021,10 +4069,59 @@
       comicText("👻 " + ghostData.score, plane.x, gy - 22, 13, "rgba(255,255,255,0.8)");
     }
 
+    // ----- TRAILS -----
+    const RAINBOW = ["#ff4d4d", "#ff9f1a", "#ffe234", "#4cd964", "#4da6ff", "#9b59ff"];
+    function drawTrail(scale) {
+      if (trailId === "none") { trailBits = []; return; }
+      if (state === "playing") {
+        // Add a new piece at the back of the plane, and move the old ones back
+        const emoji = trailId === "t-hearts" || trailId === "t-poo";
+        if (!emoji || frame % 5 === 0) {
+          trailBits.push({ x: plane.x - 16 * scale, y: plane.y + (emoji ? (Math.random() - 0.5) * 8 : 0),
+                           t: emoji ? 50 : 40, r: Math.random() });
+        }
+        trailBits.forEach(function (b) { b.x -= Math.max(3, speed); b.t--; });
+        trailBits = trailBits.filter(function (b) { return b.t > 0 && b.x > -30; });
+      }
+      trailBits.forEach(function (b) {
+        const life = b.t / (trailId === "t-hearts" || trailId === "t-poo" ? 50 : 40);
+        ctx.globalAlpha = Math.max(0, Math.min(1, life));
+        if (trailId === "t-rainbow") {
+          RAINBOW.forEach(function (c, i) {
+            ctx.fillStyle = c;
+            ctx.fillRect(b.x - 2, b.y - 9 + i * 3, 4, 3);
+          });
+        } else if (trailId === "t-fire") {
+          ctx.fillStyle = b.r < 0.5 ? "#f2c230" : "#e8562a";
+          ctx.beginPath();
+          ctx.arc(b.x, b.y + (b.r - 0.5) * 8, 2 + life * 5, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (trailId === "t-sparkle") {
+          if (b.t % 2 === 0 || state !== "playing") {
+            ctx.fillStyle = b.r < 0.5 ? "#ffd23f" : "#ffffff";
+            ctx.strokeStyle = "#c98a00";
+            ctx.lineWidth = 1;
+            ctx.font = "bold " + Math.round(8 + life * 10) + "px 'Segoe UI', Arial, sans-serif";
+            ctx.textAlign = "center";
+            ctx.strokeText("✦", b.x, b.y + (b.r - 0.5) * 14);
+            ctx.fillText("✦", b.x, b.y + (b.r - 0.5) * 14);
+          }
+        } else {
+          ctx.font = Math.round(10 + life * 6) + "px 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(trailId === "t-hearts" ? "💖" : "💩", b.x, b.y);
+          ctx.textBaseline = "alphabetic";
+        }
+      });
+      ctx.globalAlpha = 1;
+    }
+
     function drawPlane() {
       let tilt = Math.max(-0.5, Math.min(0.9, plane.vy * 0.07));
       if (loopTimer > 0) tilt = -plane.spin;   // spinning backwards = a loop-the-loop!
       const scale = chosen === "skyfinplus" ? 0.75 : 1;
+      drawTrail(scale);
       // Fire skin: flickering flames shoot out the back
       if ((S().pattern === "flames" || boostTimer > 0) && state === "playing") {
         for (let i = 0; i < 3; i++) {

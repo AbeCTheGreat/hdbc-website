@@ -39,6 +39,27 @@
        Your cards are saved in this browser, so they're only on this computer or phone.</p>
     <p class="card-count" id="card-count"></p>
 
+    <!-- TRADING CODE: share it so friends can see your cards -->
+    <div class="trade-box">
+      <h3>🔁 Trade codes with a friend</h3>
+      <p>Your trading code: <strong class="trade-code" id="my-code"></strong>
+        <button type="button" class="button" id="copy-code">📋 Copy</button></p>
+      <p class="trade-small">Give your code to a friend. When they type it in, they'll see all YOUR cards!</p>
+      <form id="friend-form" class="trade-form">
+        <label for="friend-code">Friend's code:</label>
+        <input type="text" id="friend-code" placeholder="HDB-0000" maxlength="10" autocomplete="off" spellcheck="false">
+        <button type="submit" class="button">👀 See their cards</button>
+      </form>
+      <p class="trade-small" id="friend-msg" aria-live="polite"></p>
+    </div>
+
+    <!-- A friend's cards show up here -->
+    <div id="friend-area" hidden>
+      <h3 class="trade-title" id="friend-title"></h3>
+      <div class="tcards" id="friend-cards"></div>
+      <h3 class="trade-title">🃏 Your cards</h3>
+    </div>
+
     <!-- The script below fills this in with all the cards -->
     <div class="tcards" id="tcards"></div>
   </section>
@@ -52,8 +73,10 @@
   <!-- JAVASCRIPT: show the cards -->
   <script>
     const owned = ownedCards();
-    const box = document.getElementById("tcards");
 
+    // Fills a box with all 12 cards. "owned" = the cards to show face up.
+    function showCards(box, owned) {
+    box.innerHTML = "";
     CARDS.forEach(function (c, i) {
       const card = document.createElement("div");
       const have = owned.indexOf(c.id) >= 0;
@@ -118,10 +141,41 @@
       card.append(pic, name, comic, list);
       box.appendChild(card);
     });
+    }
+    showCards(document.getElementById("tcards"), owned);
 
     const count = document.getElementById("card-count");
     count.textContent = "You have " + owned.length + " / " + CARDS.length + " cards" +
       (owned.length === CARDS.length ? " 🏆 You collected them ALL!" : "");
+
+    // Your trading code
+    const myCode = cardCode(owned);
+    document.getElementById("my-code").textContent = myCode;
+    document.getElementById("copy-code").addEventListener("click", function () {
+      const b = this;
+      function said() { b.textContent = "✅ Copied!"; setTimeout(function () { b.textContent = "📋 Copy"; }, 1500); }
+      if (navigator.clipboard) navigator.clipboard.writeText(myCode).then(said, function () {});
+    });
+
+    // A friend's code
+    document.getElementById("friend-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const msg = document.getElementById("friend-msg");
+      const area = document.getElementById("friend-area");
+      const theirs = readCardCode(document.getElementById("friend-code").value);
+      if (!theirs) {
+        msg.textContent = "🤔 Hmm, that's not a real code. Check it and try again! (It looks like HDB-0000.)";
+        area.hidden = true;
+        return;
+      }
+      const mine = theirs.filter(function (id) { return owned.indexOf(id) < 0; }).length;
+      msg.textContent = theirs.length === 0 ? "Your friend doesn't have any cards yet. Tell them to go play! ✈️"
+        : "Your friend has " + theirs.length + " / " + CARDS.length + " cards" +
+          (mine > 0 ? ", and " + mine + " that you don't have yet! 😮" : ". You have all of theirs! 😎");
+      document.getElementById("friend-title").textContent = "👀 Your friend's cards (" + theirs.length + " / " + CARDS.length + ")";
+      showCards(document.getElementById("friend-cards"), theirs);
+      area.hidden = false;
+    });
   </script>
 </body>
 </html>

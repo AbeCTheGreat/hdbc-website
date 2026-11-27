@@ -93,3 +93,23 @@ function ownedCards() {
   const d = cardData();
   return CARDS.filter(function (c) { return c.has(d); }).map(function (c) { return c.id; });
 }
+
+// ----- TRADING CODES -----
+// Your code is a secret number that says which cards you have, like HDB-03F7.
+// The last letter is a check, so a typo won't show the wrong cards.
+function codeCheck(n) { return ((n * 7 + 5) % 36).toString(36).toUpperCase(); }
+function cardCode(ids) {
+  let n = 0;
+  CARDS.forEach(function (c, i) { if (ids.indexOf(c.id) >= 0) n += Math.pow(2, i); });
+  return "HDB-" + n.toString(36).toUpperCase().padStart(3, "0") + codeCheck(n);
+}
+// Turns a code back into a list of cards (or null if it's not a real code)
+function readCardCode(code) {
+  let t = String(code).toUpperCase().replace(/[^0-9A-Z]/g, "");
+  if (t.indexOf("HDB") === 0) t = t.slice(3);
+  if (t.length !== 4) return null;
+  const n = parseInt(t.slice(0, 3), 36);
+  if (isNaN(n) || n >= Math.pow(2, CARDS.length) || codeCheck(n) !== t[3]) return null;
+  return CARDS.filter(function (c, i) { return Math.floor(n / Math.pow(2, i)) % 2 === 1; })
+              .map(function (c) { return c.id; });
+}
