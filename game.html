@@ -158,7 +158,7 @@
       ❄️ <strong>Winter special:</strong> snow, ⛄ snowball shields, a giant snowman at 75 points, and a sneaky gift thief at 125!<br>
       🌀 Keep your eyes open after 30 points... a secret portal might show up! There are <strong>two</strong> secret worlds to find.<br>
       🏁 <strong>Race:</strong> beat Barry, Gus, and Antis to the finish line. Grab coins for a speed boost!<br>
-      📖 <strong>Story mode:</strong> 5 levels starring the HDBOC characters. Can you finish the story?<br>
+      📖 <strong>Story mode:</strong> 10 levels starring the HDBOC characters. Can you finish the story?<br>
       🐾 Get a <strong>flying buddy</strong> in the Pet Shop. It flies next to you and grabs coins. Some have special powers!</p>
 
     <!-- MORE GAMES -->
@@ -166,7 +166,17 @@
       <a class="button" href="snowball.html">❄️ Snowball Fight</a>
       <a class="button" href="cards.html">🃏 My Cards</a>
       <a class="button" href="stats.html">📊 My Stats</a>
+      <a class="button" href="trophies.html">🏆 Trophy Room</a>
+      <a class="button" href="arcade.html">🕹️ Arcade</a>
     </p>
+
+    <!-- SECRET CODES: type a secret word to unlock a surprise. (Shhh! The codes are in the script.) -->
+    <form class="secret-codes" id="code-form">
+      <label for="code-input">🔑 Got a secret code?</label>
+      <input type="text" id="code-input" maxlength="12" autocomplete="off" spellcheck="false">
+      <button type="submit" class="button">Try it</button>
+      <p class="code-msg" id="code-msg" aria-live="polite"></p>
+    </form>
 
     <!-- COIN SHOP: spend the coins you grab in the game. The script fills it in. -->
     <div class="shop">
@@ -690,6 +700,8 @@
     let hat = "none";
     try { hat = localStorage.getItem("hdboc-hat") || "none"; } catch (e) {}
     if (hat !== "none" && !owned[hat]) hat = "none";
+    let bigHat = false;   // GIANT HAT MODE (a secret code!)
+    try { bigHat = localStorage.getItem("hdboc-bighat") === "on"; } catch (e) {}
     let trailId = "none";   // which trail your plane leaves behind
     try { trailId = localStorage.getItem("hdboc-trail") || "none"; } catch (e) {}
     if (trailId !== "none" && !owned[trailId]) trailId = "none";
@@ -858,6 +870,9 @@
     //   need      = how many badges you need,  or
     //   badge     = which badge unlocks it
     //   pattern   = extra drawing on the plane: sparkle, spots, stars, flames, or sprinkles
+    // Secret codes you've used (the codes are lower down, under SECRET CODES)
+    let codesUsed = {};
+    try { codesUsed = JSON.parse(localStorage.getItem("hdboc-codes")) || {}; } catch (e) { codesUsed = {}; }
     const SKINS = [
       { id: "classic",   name: "Classic",   how: "",                       swatch: "#ffffff" },
       { id: "gold",      name: "Gold",      how: "Earn 3 badges",          need: 3,
@@ -878,12 +893,16 @@
         wing: "#ff6b6b", fold: "#6b8bff", pattern: "rainbow" },
       // Fly as Pooant! His Poo Blaster lasts 2 seconds longer
       { id: "pooant",    name: "Pooant",    how: "Get the Poo Power badge", badge: "poo",
-        wing: "#f6d64a", fold: "#c9a21a", pattern: "pooant" }
+        wing: "#f6d64a", fold: "#c9a21a", pattern: "pooant" },
+      // A secret skin! You need a secret code to get it
+      { id: "diamond",   name: "Diamond",   how: "🔑 Secret code", secret: true,
+        wing: "#c9f4ff", fold: "#5fb8d9", pattern: "sparkle" }
     ];
     function isSkinUnlocked(k) {
       if (k.need) return badgeCount() >= k.need;
       if (k.badge) return !!earned[k.badge];
       if (k.shop) return !!owned[k.id];
+      if (k.secret) return !!codesUsed[k.id];
       return true;
     }
     function S() { return SKINS.find(function (k) { return k.id === skin; }) || SKINS[0]; }
@@ -1064,8 +1083,16 @@
     function saveStats() {
       try { localStorage.setItem("hdboc-stats", JSON.stringify(stats)); } catch (e) {}
     }
+    let fightStart = 0, wasFight = false;   // when the boss fight started
     function beat(name) {   // call this when you beat a boss
       stats.bosses[name] = (stats.bosses[name] || 0) + 1;
+      // Your fastest win (it shows in the Boss Trophy Room)
+      const secs = Math.round((frame - fightStart) / 6) / 10;
+      stats.fastest = stats.fastest || {};
+      if (wasFight && secs > 0) {
+        if (stats.fastest[name] && secs < stats.fastest[name]) toasts.push({ text: "⏱️ New record: " + secs + " sec!", t: 150 });
+        if (!stats.fastest[name] || secs < stats.fastest[name]) stats.fastest[name] = secs;
+      }
       saveStats();
       checkCards();
     }
@@ -1471,6 +1498,23 @@
       stacks.push({ x: W, gapTop: gapTop, colors: colors, scored: false });
     }
 
+    // JUMP CODE: start a flight at any score. Bosses you skipped won't show up.
+    let jumpTo = 0;
+    function applyJump() {
+      if (!jumpTo || mode !== "normal") return;
+      score = jumpTo;
+      if (jumpTo > 50) bossDone = true;
+      if (jumpTo > 75) snowDone = true;
+      if (jumpTo > 100) copsDone = true;
+      if (jumpTo > 125) banditDone = true;
+      if (jumpTo > 150) antisDone = true;
+      if (jumpTo > 200) blackoutDone = true;
+      if (jumpTo > 250) vonboltDone = true;
+      if (jumpTo > 300) botDone = true;
+      toasts.push({ text: "🚀 JUMP! Starting at " + jumpTo + " points!", t: 150 });
+      jumpTo = 0;   // only for one flight
+    }
+
     // What happens when you click, tap, or press space
     function flap() {
       if (state === "paused") { togglePause(); return; }   // tap to keep flying
@@ -1483,8 +1527,9 @@
       if (state === "start") {
         reset();
         state = "playing";
+        applyJump();
       } else if (state === "over") {
-        if (frame > 30) { reset(); state = "playing"; }   // wait a moment so you don't restart by accident
+        if (frame > 30) { reset(); state = "playing"; applyJump(); }   // wait a moment so you don't restart by accident
         return;
       }
       plane.vy = P().flap * (water >= 1 ? 0.85 : 1);   // flapping is harder underwater
@@ -1506,6 +1551,10 @@
     function update() {
       if (state === "paused") return;   // everything freezes while paused
       frame++;
+      // Start the boss timer when a boss fight begins (for the Trophy Room's "fastest win")
+      const fightNow = !!(boss || cops || antis || snowman || villain || shark || erupt || bandit);
+      if (fightNow && !wasFight) fightStart = frame;
+      wasFight = fightNow;
       clouds.forEach(function (c) {
         c.x -= 0.4 * c.s;
         if (c.x < -80) { c.x = W + 40; c.y = 40 + Math.random() * 180; }
@@ -3246,6 +3295,7 @@
       if (hat === "none") return;
       ctx.save();
       ctx.translate(-4, -8);
+      if (bigHat) ctx.scale(2.4, 2.4);   // GIANT HAT MODE!
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = "#111";
       if (hat === "santa") {
@@ -4416,7 +4466,65 @@
       if ((Number(localStorage.getItem("hdboc-snowball-best")) || 0) >= 15) earn("snowpro");
     } catch (e) {}
     document.addEventListener("hdboc-secret", function () { earn("secret"); });
-    checkCards(true);   // cards you already have (no "New card!" for those)   // typed the code right here!
+    checkCards(true);   // cards you already have (no "New card!" for those)
+
+    // ----- SECRET CODES -----
+    // Type one in the box under the game. Make up your own!
+    const SECRET_CODES = {
+      POOANT: function () {
+        if (owned["t-poo"]) return "💩 You already have the Poo Trail!";
+        owned["t-poo"] = true;
+        trailId = "t-poo";
+        return "💩 SECRET! You got the Poo Trail for FREE. It's turned on!";
+      },
+      SHINY: function () {
+        if (codesUsed.diamond) return "💎 You already have the Diamond skin!";
+        codesUsed.diamond = true;
+        skinWasUnlocked.diamond = true;
+        skin = "diamond";
+        try { localStorage.setItem("hdboc-skin", skin); } catch (e) {}
+        return "💎 SECRET SKIN UNLOCKED: Diamond! You're wearing it now.";
+      },
+      MONEY: function () {
+        if (codesUsed.money) return "🪙 Nice try! That code only works once.";
+        codesUsed.money = true;
+        wallet += 25;
+        return "🪙 +25 coins! (This code only works once.)";
+      },
+      BIGHAT: function () {
+        bigHat = !bigHat;
+        try { localStorage.setItem("hdboc-bighat", bigHat ? "on" : "off"); } catch (e) {}
+        if (!bigHat) return "🎩 Giant Hat Mode: OFF. (Type BIGHAT again to turn it back on.)";
+        return hat === "none" ? "🎩 GIANT HAT MODE: ON! Put on a hat from the Coin Shop to see it."
+                              : "🎩 GIANT HAT MODE: ON! Type BIGHAT again to turn it off.";
+      }
+    };
+    document.getElementById("code-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      const input = document.getElementById("code-input");
+      const msg = document.getElementById("code-msg");
+      const code = input.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (state === "playing" || state === "paused") { msg.textContent = "✈️ Finish your flight first!"; return; }
+      // JUMP + a number (like JUMP150) = start your next flight at that score!
+      const jump = code.match(/^JUMP(\d{1,3})$/);
+      if (jump) {
+        jumpTo = Number(jump[1]);
+        input.value = "";
+        play("unlock");
+        msg.textContent = jumpTo === 0 ? "🚀 Jump turned off. You'll start at 0 again."
+          : "🚀 Your next Normal flight starts at " + jumpTo + " points! Tap the game to go.";
+        if (jumpTo > 0 && mode !== "normal") document.querySelector('.mode-choice[data-mode="normal"]').click();   // jumps only work in Normal mode
+        return;
+      }
+      if (!SECRET_CODES[code]) { msg.textContent = "❌ Nope, that's not a code. Keep guessing!"; return; }
+      msg.textContent = SECRET_CODES[code]();
+      input.value = "";
+      play("unlock");
+      try { localStorage.setItem("hdboc-codes", JSON.stringify(codesUsed)); } catch (e) {}
+      saveShop();
+      showShop();
+      showSkins();
+    });   // typed the code right here!
     loop();
   </script>
 

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boss Trophy Room - HDBOC Paper Products</title>
+  <!-- The little picture on the browser tab -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+  <link rel="stylesheet" href="style.css">
+  <!-- Dark mode (and its button) -->
+  <script src="site.js"></script>
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header>
+    <!-- Our comic-strip logo. Clicking it goes back to the homepage. -->
+    <a class="logo" href="index.html"><img src="logo.png" alt="HDBOC"></a>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#products">Products</a>
+      <a href="index.html#deals">Deals</a>
+      <a href="characters.html">Characters</a>
+      <a href="game.html">Game</a>
+      <a href="index.html#about">About</a>
+      <a href="order.html">Order</a>
+    </nav>
+  </header>
+
+  <!-- BOSS TROPHY ROOM: a trophy for every boss you beat in the game -->
+  <section>
+    <a class="back" href="game.html">&larr; Back to the game</a>
+    <h2>🏆 Boss Trophy Room</h2>
+    <p class="peek-intro">Beat a boss in the <a href="game.html">Paper Airplane Game</a> to win its trophy.
+       🥉 Bronze = beat it once, 🥈 Silver = 5 times, 🥇 Gold = 10 times!</p>
+    <p class="card-count" id="trophy-count"></p>
+
+    <!-- The script below fills this in -->
+    <div class="trophy-grid" id="trophy-grid"></div>
+  </section>
+
+
+  <!-- BOTTOM BAR -->
+  <footer>
+    <p class="footer-links"><a href="news.html">News</a> · <a href="faq.html">FAQ</a> · <a href="tips.html">Flying Tips</a> · <a href="arcade.html">Arcade</a> · <a href="comic-maker.html">Comic Maker</a></p>
+    &copy; 2026 HDBOC Paper Products
+  </footer>
+
+  <!-- JAVASCRIPT: show the trophies -->
+  <script>
+    // Every boss: id (same as the game), name, emoji, where to find it, and a picture if we have one
+    const TROPHIES = [
+      { id: "biscuit",  name: "Biscuit",          icon: "🐶", where: "Score 50 points",
+        pic: "--img: url(peek-antis.png); --x: 415; --y: 425; --w: 100; --h: 80;" },
+      { id: "snowman",  name: "Giant Snowman",    icon: "⛄", where: "Score 75 points (winter only)" },
+      { id: "cops",     name: "Not Smart Cops",   icon: "🚓", where: "Score 100 points",
+        pic: "--img: url(not-smart-cops.png); --x: 215; --y: 845; --w: 230; --h: 635;" },
+      { id: "bandit",   name: "Bandit",           icon: "🦝", where: "Score 125 points (winter only)" },
+      { id: "antis",    name: "PrayingAntis",     icon: "🦗", where: "Score 150 points",
+        pic: "--img: url(praying-antis.png); --x: 290; --y: 640; --w: 520; --h: 820;" },
+      { id: "shark",    name: "Shark",            icon: "🦈", where: "Find the secret underwater world" },
+      { id: "volcano",  name: "Volcano Eruption", icon: "🌋", where: "Find the secret volcano world" },
+      { id: "blackout", name: "Dr. Blackout",     icon: "💡", where: "Score 200 points",
+        pic: "--img: url(new-characters.png); --x: 795; --y: 20; --w: 240; --h: 410;" },
+      { id: "vonbolt",  name: "Baron Von Bolt",   icon: "⚡", where: "Score 250 points",
+        pic: "--img: url(new-characters.png); --x: 410; --y: 455; --w: 280; --h: 430;" },
+      { id: "bot",      name: "Battle Bot",       icon: "🤖", where: "Score 300 points",
+        pic: "--img: url(new-characters.png); --x: 750; --y: 495; --w: 330; --h: 385;" }
+    ];
+
+    // ----- You don't need to change anything below this line -----
+    let stats = {};
+    try { stats = JSON.parse(localStorage.getItem("hdboc-stats")) || {}; } catch (e) { stats = {}; }
+    const beaten = stats.bosses || {};
+    const fastest = stats.fastest || {};
+    const grid = document.getElementById("trophy-grid");
+    let won = 0;
+
+    TROPHIES.forEach(function (t) {
+      const times = beaten[t.id] || 0;
+      const tier = times >= 10 ? "gold" : times >= 5 ? "silver" : times >= 1 ? "bronze" : "none";
+      if (times > 0) won++;
+      const card = document.createElement("div");
+      card.className = "trophy " + tier;
+
+      const cup = document.createElement("p");
+      cup.className = "trophy-cup";
+      cup.textContent = { gold: "🥇", silver: "🥈", bronze: "🥉", none: "🔒" }[tier];
+      card.appendChild(cup);
+
+      if (times > 0 && t.pic) {
+        const pic = document.createElement("div");
+        pic.className = "char-pic";
+        pic.setAttribute("role", "img");
+        pic.setAttribute("aria-label", t.name);
+        pic.setAttribute("style", t.pic + " --size: 110px;");
+        card.appendChild(pic);
+      } else {
+        const icon = document.createElement("p");
+        icon.className = "trophy-icon";
+        icon.textContent = times > 0 ? t.icon : "?";
+        card.appendChild(icon);
+      }
+
+      const name = document.createElement("h3");
+      name.textContent = times > 0 ? t.name : "???";
+      card.appendChild(name);
+
+      const info = document.createElement("p");
+      info.className = "trophy-info";
+      if (times > 0) {
+        info.textContent = "Beaten " + times + (times === 1 ? " time" : " times");
+        if (fastest[t.id]) {
+          info.appendChild(document.createElement("br"));
+          info.appendChild(document.createTextNode("⏱️ Fastest win: " + fastest[t.id] + " sec"));
+        }
+        if (tier !== "gold") {
+          info.appendChild(document.createElement("br"));
+          info.appendChild(document.createTextNode((tier === "silver" ? 10 : tier === "bronze" ? 5 : 1) - times + " more for " +
+            (tier === "silver" ? "🥇" : "🥈")));
+        }
+      } else {
+        info.textContent = "🔍 " + t.where;
+      }
+      card.appendChild(info);
+      grid.appendChild(card);
+    });
+
+    document.getElementById("trophy-count").textContent = "You've beaten " + won + " / " + TROPHIES.length + " bosses" +
+      (won === TROPHIES.length ? " 🏆 You beat them ALL!" : "");
+  </script>
+</body>
+</html>
